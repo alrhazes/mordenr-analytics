@@ -1,12 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryKeys } from "./keys";
+import type { MapFilters } from "@/stores/explore-workspace";
 
 export type SavedViewConfig = {
   election: string;
   state: string;
   selectedConstituencyId?: string | null;
+  selectedElectoralType?: "parliament" | "dun" | null;
   mapMode?: "select" | "pan" | "compare";
+  mapLevel?: "parliament" | "dun";
+  presentation?: "normal" | "ops66";
+  colorMode?: "party" | "group";
+  filters?: Partial<MapFilters>;
   compareIds?: string[];
 };
 

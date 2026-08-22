@@ -16,12 +16,19 @@ export function SaveViewDialog() {
   const selectedConstituencyId = useExploreWorkspaceStore(
     (s) => s.selectedConstituencyId,
   );
+  const selectedElectoralType = useExploreWorkspaceStore(
+    (s) => s.selectedElectoralType,
+  );
   const mapMode = useExploreWorkspaceStore((s) => s.mapMode);
+  const mapLevel = useExploreWorkspaceStore((s) => s.mapLevel);
+  const presentation = useExploreWorkspaceStore((s) => s.presentation);
+  const colorMode = useExploreWorkspaceStore((s) => s.colorMode);
+  const filters = useExploreWorkspaceStore((s) => s.filters);
   const compareIds = useExploreWorkspaceStore((s) => s.compareIds);
 
   const defaultName = appliedState
-    ? `GE15 · ${appliedState}`
-    : "GE15 · All Malaysia";
+    ? `GE15 · ${mapLevel === "dun" ? "DUN" : "Par"} · ${appliedState}`
+    : `GE15 · ${mapLevel === "dun" ? "DUN" : "Parlimen"} · All Malaysia`;
 
   return (
     <>
@@ -83,7 +90,12 @@ export function SaveViewDialog() {
                         election: "GE15",
                         state: appliedState,
                         selectedConstituencyId,
+                        selectedElectoralType,
                         mapMode,
+                        mapLevel,
+                        presentation,
+                        colorMode,
+                        filters,
                         compareIds,
                       },
                     },
@@ -112,7 +124,10 @@ export function SaveViewDialog() {
                 </label>
 
                 <div className="rounded-md bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-ink-muted)]">
-                  State: {appliedState || "All Malaysia"}
+                  {mapLevel === "dun" ? "DUN" : "Parlimen"}
+                  {presentation === "ops66" ? " · OPS66" : ""}
+                  {" · "}
+                  {appliedState || "All Malaysia"}
                   {selectedConstituencyId
                     ? ` · Seat ${selectedConstituencyId}`
                     : ""}

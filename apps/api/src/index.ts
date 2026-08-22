@@ -7,6 +7,7 @@ import { exploreRoutes } from "./routes/explore.js";
 import { libraryRoutes } from "./routes/library.js";
 import { adminRoutes } from "./routes/admin.js";
 import { profileRoutes } from "./routes/profile.js";
+import { electoralAssetsRoutes } from "./routes/electoral-assets.js";
 import { requireAuth, requireAdmin } from "./lib/middleware.js";
 
 const app = new Hono();
@@ -32,6 +33,7 @@ app.get("/", (c) =>
 
 app.route("/health", healthRoutes);
 app.route("/auth", authRoutes);
+app.route("/assets/electorals", electoralAssetsRoutes);
 
 app.use("/explore/*", requireAuth);
 app.route("/explore", exploreRoutes);

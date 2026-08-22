@@ -6,7 +6,26 @@ const viewConfigSchema = z.object({
   election: z.string().default("GE15"),
   state: z.string().default(""),
   selectedConstituencyId: z.string().nullable().optional(),
+  selectedElectoralType: z.enum(["parliament", "dun"]).nullable().optional(),
   mapMode: z.enum(["select", "pan", "compare"]).optional(),
+  mapLevel: z.enum(["parliament", "dun"]).optional(),
+  presentation: z.enum(["normal", "ops66"]).optional(),
+  colorMode: z.enum(["party", "group"]).optional(),
+  filters: z
+    .object({
+      state: z.string().optional(),
+      majority: z
+        .object({
+          value: z.string(),
+          mode: z.enum(["kurang", "lebih"]).nullable(),
+        })
+        .optional(),
+      turnout: z.string().optional(),
+      group: z.string().optional(),
+      party: z.string().optional(),
+      government: z.string().optional(),
+    })
+    .optional(),
   compareIds: z.array(z.string()).max(4).optional(),
 });
 

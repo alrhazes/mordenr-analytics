@@ -143,7 +143,10 @@ export function AppShell() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
-          className="flex-1 p-6"
+          className={cn(
+            "flex-1",
+            location.pathname.startsWith("/explore") ? "p-4" : "p-6",
+          )}
         >
           <Outlet />
         </motion.main>

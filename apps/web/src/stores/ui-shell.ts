@@ -12,7 +12,7 @@ type UiShellState = {
 export const useUiShellStore = create<UiShellState>()(
   persist(
     (set) => ({
-      sidebarCollapsed: false,
+      sidebarCollapsed: true,
       commandOpen: false,
       setSidebarCollapsed: (value) => set({ sidebarCollapsed: value }),
       toggleSidebar: () =>
@@ -20,7 +20,8 @@ export const useUiShellStore = create<UiShellState>()(
       setCommandOpen: (value) => set({ commandOpen: value }),
     }),
     {
-      name: "bdcat-ui-shell",
+      // bump key so default collapsed applies for existing local sessions
+      name: "bdcat-ui-shell-v2",
       partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),
     },
   ),

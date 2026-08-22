@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, startTransition } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   useExploreGeo,
-  useExploreStates,
   useExploreSummary,
 } from "@/queries/explore";
 import { useSavedView } from "@/queries/library";
@@ -13,6 +12,11 @@ import { ExploreMap } from "./explore-map";
 import { PartySeatsChart } from "./party-seats-chart";
 import { ConstituencySheet } from "./constituency-sheet";
 import { SaveViewDialog } from "./save-view-dialog";
+import { MapControlBar } from "./map-control-bar";
+import { SeatListDialog } from "./seat-list-dialog";
+import { DataInventoryDialog } from "./data-inventory-dialog";
+import { Ops66PasswordDialog } from "./ops66-password-dialog";
+import { applyMapFilters } from "./lib/map-filters";
 
 function formatNumber(n: number | string) {
   if (typeof n === "string") return n;
@@ -22,12 +26,17 @@ function formatNumber(n: number | string) {
 export function ExplorePage() {
   const [params, setParams] = useSearchParams();
   const urlState = params.get("state") || "";
+  const urlLevel = params.get("level") || "";
+  const urlColor = params.get("color") || "";
   const viewId = params.get("view");
   const seatParam = params.get("seat");
+  const seatTypeParam = params.get("seatType");
   const appliedViewRef = useRef<string | null>(null);
 
-  const appliedState = useExploreWorkspaceStore((s) => s.appliedState);
-  const setAppliedState = useExploreWorkspaceStore((s) => s.setAppliedState);
+  const filters = useExploreWorkspaceStore((s) => s.filters);
+  const mapLevel = useExploreWorkspaceStore((s) => s.mapLevel);
+  const presentation = useExploreWorkspaceStore((s) => s.presentation);
+  const colorMode = useExploreWorkspaceStore((s) => s.colorMode);
   const mapMode = useExploreWorkspaceStore((s) => s.mapMode);
   const setMapMode = useExploreWorkspaceStore((s) => s.setMapMode);
   const compareIds = useExploreWorkspaceStore((s) => s.compareIds);
@@ -35,10 +44,21 @@ export function ExplorePage() {
   const setSelectedConstituencyId = useExploreWorkspaceStore(
     (s) => s.setSelectedConstituencyId,
   );
+  const setSelectedElectoralType = useExploreWorkspaceStore(
+    (s) => s.setSelectedElectoralType,
+  );
   const applyViewConfig = useExploreWorkspaceStore((s) => s.applyViewConfig);
+  const setFilterField = useExploreWorkspaceStore((s) => s.setFilterField);
+  const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
+  const setColorMode = useExploreWorkspaceStore((s) => s.setColorMode);
+  const searchSelection = useExploreWorkspaceStore((s) => s.searchSelection);
 
   const savedView = useSavedView(viewId);
 
+  const appliedState =
+    filters.state && filters.state !== "0" ? filters.state : "";
+
+  // Apply saved view once
   useEffect(() => {
     if (!viewId || !savedView.data) return;
     if (appliedViewRef.current === savedView.data.id) return;
@@ -50,50 +70,137 @@ export function ExplorePage() {
         state: cfg.state,
         selectedConstituencyId:
           cfg.selectedConstituencyId || seatParam || null,
+        selectedElectoralType: cfg.selectedElectoralType || null,
         mapMode: cfg.mapMode,
+        mapLevel: cfg.mapLevel,
+        presentation: cfg.presentation,
+        colorMode: cfg.colorMode,
+        filters: cfg.filters,
         compareIds: cfg.compareIds,
       });
       const next = new URLSearchParams();
       if (cfg.state) next.set("state", cfg.state);
+      if (cfg.mapLevel) next.set("level", cfg.mapLevel);
+      if (cfg.presentation && cfg.presentation !== "normal") {
+        next.set("presentation", cfg.presentation);
+      }
+      if (cfg.colorMode && cfg.colorMode !== "party") {
+        next.set("color", cfg.colorMode);
+      }
       next.set("view", savedView.data.id);
       const seat = cfg.selectedConstituencyId || seatParam;
       if (seat) next.set("seat", seat);
+      if (cfg.selectedElectoralType) {
+        next.set("seatType", cfg.selectedElectoralType);
+      }
       setParams(next, { replace: true });
     });
   }, [viewId, savedView.data, seatParam, applyViewConfig, setParams]);
 
+  // Hydrate store from URL once (avoid fighting user-driven filter changes)
+  const urlHydratedRef = useRef(false);
   useEffect(() => {
     if (viewId) return;
     appliedViewRef.current = null;
-    if (urlState !== appliedState) {
-      setAppliedState(urlState);
-    }
-  }, [urlState, appliedState, setAppliedState, viewId]);
+    if (urlHydratedRef.current) return;
+    urlHydratedRef.current = true;
 
+    if (urlState) setFilterField("state", urlState);
+    if (urlLevel === "dun" || urlLevel === "parliament") {
+      setMapLevel(urlLevel);
+    }
+    if (urlColor === "group" || urlColor === "party") {
+      setColorMode(urlColor);
+    }
+    if (seatParam) {
+      setSelectedConstituencyId(seatParam);
+      if (seatTypeParam === "dun" || seatTypeParam === "parliament") {
+        setSelectedElectoralType(seatTypeParam);
+      }
+    }
+    // Mount-only hydrate — store is source of truth after this
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewId]);
+
+  // Sync workspace → URL (functional update so we don't re-read stale params)
   useEffect(() => {
     if (viewId) return;
-    if (seatParam) setSelectedConstituencyId(seatParam);
-  }, [seatParam, setSelectedConstituencyId, viewId]);
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (appliedState) next.set("state", appliedState);
+        else next.delete("state");
+        if (mapLevel !== "parliament") next.set("level", mapLevel);
+        else next.delete("level");
+        if (presentation === "ops66") next.set("presentation", "ops66");
+        else next.delete("presentation");
+        if (colorMode === "group") next.set("color", "group");
+        else next.delete("color");
+        next.delete("view");
+        if (next.toString() === prev.toString()) return prev;
+        return next;
+      },
+      { replace: true },
+    );
+  }, [
+    appliedState,
+    mapLevel,
+    presentation,
+    colorMode,
+    viewId,
+    setParams,
+  ]);
 
-  const states = useExploreStates();
-  const summary = useExploreSummary(appliedState);
-  const geo = useExploreGeo(appliedState);
-  const stateOptions = useMemo(() => states.data || [], [states.data]);
+  // Match bdcat: always load seat polygons (national + filtered), not center points
+  const summary = useExploreSummary({
+    state: appliedState,
+    level: mapLevel,
+    presentation,
+  });
+  const geo = useExploreGeo({
+    state: appliedState,
+    level: mapLevel,
+    presentation,
+    polygons: true,
+  });
+
+  const filteredGeo = useMemo(() => {
+    if (!geo.data) return undefined;
+
+    const payloadState = (geo.data.state || "").toUpperCase();
+    const wanted = (appliedState || "").toUpperCase();
+    // While refetching a new state, keepPreviousData still holds the old
+    // payload — don't client-filter it to empty against the new state.
+    const stateMismatch = Boolean(wanted) && payloadState !== wanted;
+
+    const clientFilters =
+      stateMismatch || (geo.data.state != null && geo.data.state !== "")
+        ? { ...filters, state: "0" }
+        : filters;
+
+    const features = applyMapFilters(geo.data.features, clientFilters);
+    const focused = searchSelection
+      ? features.filter((f) => f.properties.code === searchSelection.code)
+      : features;
+    return {
+      ...geo.data,
+      features: searchSelection && focused.length ? focused : features,
+    };
+  }, [geo.data, filters, searchSelection, appliedState]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl text-[var(--color-ink)]">
+          <h1 className="font-[family-name:var(--font-display)] text-2xl text-[var(--color-ink)]">
             Explore
           </h1>
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            GE15 parliament map — filter a state for polygon detail, click a
-            seat to drill in.
+          <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+            Peta pilihan raya
             {savedView.data ? (
               <>
                 {" "}
-                · Opened view <strong>{savedView.data.name}</strong>
+                · <strong>{savedView.data.name}</strong>
               </>
             ) : null}
           </p>
@@ -113,101 +220,64 @@ export function ExplorePage() {
         </div>
       </div>
 
-      <div className="sticky top-16 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]/95 p-3 backdrop-blur">
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-[var(--color-ink-muted)]">State</span>
-          <select
-            className="h-9 rounded-md border border-[var(--color-line)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            value={appliedState}
-            onChange={(e) => {
-              const value = e.target.value;
-              startTransition(() => {
-                setAppliedState(value);
-                appliedViewRef.current = null;
-                const next = new URLSearchParams(params);
-                if (value) next.set("state", value);
-                else next.delete("state");
-                next.delete("view");
-                setParams(next, { replace: true });
-              });
-            }}
-          >
-            <option value="">All Malaysia (points)</option>
-            {stateOptions.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name} ({s.seats})
-              </option>
-            ))}
-          </select>
-        </label>
-        {appliedState && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setAppliedState("");
-              appliedViewRef.current = null;
-              const next = new URLSearchParams(params);
-              next.delete("state");
-              next.delete("view");
-              setParams(next, { replace: true });
-            }}
-          >
-            Clear
+      <MapControlBar />
+
+      {compareIds.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-[var(--color-ink-muted)]">
+          Comparing {compareIds.join(", ")}
+          <Button size="sm" variant="outline" onClick={clearCompare}>
+            Clear compare
           </Button>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {compareIds.length > 0 && (
-            <div className="flex items-center gap-2 text-xs text-[var(--color-ink-muted)]">
-              Comparing {compareIds.join(", ")}
-              <Button size="sm" variant="outline" onClick={clearCompare}>
-                Clear compare
-              </Button>
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summary.isLoading &&
-          Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
+      <ExploreMap
+        data={filteredGeo}
+        isLoading={geo.isLoading && !geo.isPlaceholderData}
+        appliedState={appliedState}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {summary.isLoading &&
+            !summary.isPlaceholderData &&
+            Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24" />
+            ))}
+          {summary.data?.kpis.map((kpi) => (
+            <div
+              key={kpi.id}
+              className="rounded-xl border border-[var(--color-line)] bg-white px-4 py-3"
+            >
+              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-muted)]">
+                {kpi.label}
+              </div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-[var(--color-ink)]">
+                {kpi.id === "turnout"
+                  ? `${kpi.value}%`
+                  : formatNumber(kpi.value)}
+              </div>
+              <div className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                {kpi.hint}
+              </div>
+            </div>
           ))}
-        {summary.data?.kpis.map((kpi) => (
-          <div
-            key={kpi.id}
-            className="rounded-xl border border-[var(--color-line)] bg-white p-5"
-          >
-            <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-ink-muted)]">
-              {kpi.label}
-            </div>
-            <div className="mt-2 text-3xl font-semibold tabular-nums text-[var(--color-ink)]">
-              {kpi.id === "turnout"
-                ? `${kpi.value}%`
-                : formatNumber(kpi.value)}
-            </div>
-            <div className="mt-1 text-xs text-[var(--color-ink-muted)]">
-              {kpi.hint}
-            </div>
-          </div>
-        ))}
-      </div>
+        </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-        <ExploreMap data={geo.data} isLoading={geo.isLoading} />
-
-        <div className="rounded-xl border border-[var(--color-line)] bg-white p-5">
+        <div className="rounded-xl border border-[var(--color-line)] bg-white p-4">
           <h3 className="text-sm font-semibold text-[var(--color-ink)]">
             Seats by party
           </h3>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+          <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
             {summary.data?.election || "GE15"}
+            {presentation === "ops66" ? " · OPS66" : ""}
             {appliedState ? ` · ${appliedState}` : " · National"}
+            {mapLevel === "dun" ? " · DUN" : " · Parlimen"}
           </p>
-          {summary.isLoading ? (
-            <Skeleton className="mt-4 h-64" />
+          {summary.isLoading && !summary.isPlaceholderData ? (
+            <Skeleton className="mt-3 h-40" />
           ) : (
-            <div className="mt-2">
+            <div className="mt-1">
               <PartySeatsChart data={summary.data?.partySeats || []} />
             </div>
           )}
@@ -221,6 +291,9 @@ export function ExplorePage() {
       )}
 
       <ConstituencySheet />
+      <SeatListDialog />
+      <DataInventoryDialog />
+      <Ops66PasswordDialog />
     </div>
   );
 }

@@ -1,20 +1,31 @@
+import { useState } from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useParliamentDetail } from "@/queries/explore";
+import { electoralAssetUrl } from "@/lib/electoral-assets";
+import { useSeatDetail } from "@/queries/explore";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 
 function formatNumber(n: number) {
   return new Intl.NumberFormat("en-MY").format(n);
 }
 
+function formatMajority(majority: number, majorityPercent: number) {
+  if (majority <= 0) return "NO DATA";
+  return `${formatNumber(majority)} (${majorityPercent}%)`;
+}
+
 export function ConstituencySheet() {
   const code = useExploreWorkspaceStore((s) => s.selectedConstituencyId);
+  const electoralType = useExploreWorkspaceStore((s) => s.selectedElectoralType);
+  const mapLevel = useExploreWorkspaceStore((s) => s.mapLevel);
+  const presentation = useExploreWorkspaceStore((s) => s.presentation);
   const setSelected = useExploreWorkspaceStore(
     (s) => s.setSelectedConstituencyId,
   );
-  const detail = useParliamentDetail(code);
+  const type = electoralType || mapLevel;
+  const detail = useSeatDetail(code, type, presentation);
 
   return (
     <AnimatePresence>
@@ -23,7 +34,7 @@ export function ConstituencySheet() {
           <motion.button
             type="button"
             aria-label="Close details"
-            className="fixed inset-0 z-40 bg-[var(--color-ink)]/25 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[1100] bg-[var(--color-ink)]/25 backdrop-blur-[1px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -34,12 +45,13 @@ export function ConstituencySheet() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 20, opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-[var(--color-line)] bg-white shadow-2xl"
+            className="fixed bottom-0 right-0 top-0 z-[1200] flex w-full max-w-md flex-col border-l border-[var(--color-line)] bg-white shadow-2xl"
           >
             <div className="flex items-start justify-between gap-3 border-b border-[var(--color-line)] px-5 py-4">
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--color-ink-muted)]">
-                  Parliament
+                  {type === "dun" ? "DUN" : "Parliament"}
+                  {presentation === "ops66" ? " · OPS66" : ""}
                 </div>
                 {detail.isLoading ? (
                   <Skeleton className="mt-2 h-7 w-48" />
@@ -61,7 +73,7 @@ export function ConstituencySheet() {
             <div className="flex-1 space-y-5 overflow-auto p-5">
               {detail.isLoading && (
                 <div className="space-y-3">
-                  <Skeleton className="h-16" />
+                  <Skeleton className="h-28" />
                   <Skeleton className="h-24" />
                   <Skeleton className="h-24" />
                 </div>
@@ -69,39 +81,11 @@ export function ConstituencySheet() {
 
               {detail.data && (
                 <>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-3 w-3 rounded-full"
-                      style={{ background: detail.data.color }}
-                    />
-                    <div>
-                      <div className="text-sm font-semibold">
-                        {detail.data.party}
-                      </div>
-                      <div className="text-xs text-[var(--color-ink-muted)]">
-                        {detail.data.partyGroup || "—"} · {detail.data.code}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-ink-muted)]">
-                      Member
-                    </div>
-                    <p className="mt-1 text-sm leading-relaxed">
-                      {detail.data.member || "—"}
-                    </p>
-                  </div>
+                  <SeatProfile data={detail.data} />
 
                   <div className="grid grid-cols-2 gap-3">
-                    <Stat
-                      label="State"
-                      value={detail.data.state}
-                    />
-                    <Stat
-                      label="Turnout"
-                      value={`${detail.data.turnout}%`}
-                    />
+                    <Stat label="State" value={detail.data.state} />
+                    <Stat label="Turnout" value={`${detail.data.turnout}%`} />
                     <Stat
                       label="Electorate"
                       value={formatNumber(detail.data.electorate)}
@@ -132,6 +116,141 @@ export function ConstituencySheet() {
         </>
       )}
     </AnimatePresence>
+  );
+}
+
+function SeatProfile({ data }: { data: NonNullable<ReturnType<typeof useSeatDetail>["data"]> }) {
+  const constituencyLine = [
+    data.displayCode,
+    data.name.toUpperCase(),
+    data.displayParty ? `(${data.displayParty})` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+      <div className="flex gap-4">
+        <MemberPhoto
+          primary={data.memberPhoto}
+          fallback={data.memberPhotoFallback}
+          alt={data.member || data.name}
+        />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-base font-bold uppercase leading-tight text-[var(--color-ink)]">
+                {data.member || "—"}
+              </div>
+              <div className="mt-1 text-sm font-semibold text-[#1f6fb2]">
+                {constituencyLine}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <PartyLogo
+                src={data.groupLogo}
+                fallback={data.groupLogoFallback}
+                alt={data.partyGroup || "Coalition"}
+              />
+              {!data.hidePartyLogo && (
+                <PartyLogo
+                  src={data.partyLogo}
+                  fallback={data.partyLogoFallback}
+                  alt={data.party}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-1 text-sm text-[var(--color-ink)]">
+            <div>
+              <span className="font-semibold uppercase tracking-wide">
+                Majority:
+              </span>{" "}
+              {formatMajority(data.majority, data.majorityPercent)}
+            </div>
+            <div>
+              <span className="font-semibold uppercase tracking-wide">
+                TOV:
+              </span>{" "}
+              {data.turnout}%
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-2 text-xs text-[var(--color-ink-muted)]">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ background: data.color }}
+            />
+            <span className="font-semibold text-[var(--color-ink)]">
+              {data.party}
+            </span>
+            {data.partyGroup ? (
+              <>
+                <span>·</span>
+                <span>{data.partyGroup}</span>
+              </>
+            ) : null}
+            {data.parliamentCode ? (
+              <>
+                <span>·</span>
+                <span>Par {data.parliamentCode}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MemberPhoto({
+  primary,
+  fallback,
+  alt,
+}: {
+  primary: string;
+  fallback: string;
+  alt: string;
+}) {
+  const [src, setSrc] = useState(() => electoralAssetUrl(primary));
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-20 w-20 shrink-0 rounded-md border border-[var(--color-line)] bg-white object-cover object-top"
+      onError={() => {
+        const next = electoralAssetUrl(fallback);
+        if (src !== next) setSrc(next);
+      }}
+    />
+  );
+}
+
+function PartyLogo({
+  src,
+  fallback,
+  alt,
+}: {
+  src: string;
+  fallback: string;
+  alt: string;
+}) {
+  const [logoSrc, setLogoSrc] = useState(() => electoralAssetUrl(src));
+
+  return (
+    <img
+      src={logoSrc}
+      alt={alt}
+      className="h-8 max-w-[52px] border border-[var(--color-line)] bg-white object-contain p-0.5"
+      onError={() => {
+        const next = electoralAssetUrl(fallback);
+        if (logoSrc !== next) setLogoSrc(next);
+      }}
+    />
   );
 }
 

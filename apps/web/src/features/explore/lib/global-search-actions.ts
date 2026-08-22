@@ -63,7 +63,7 @@ export function applyGlobalSearchSelection(
   if (item.type === "voters") {
     const ic = item.ic || item.id;
     navigate(`/explore?voter=${encodeURIComponent(ic)}`);
-    return `Voter IC ${ic} — full voter profile coming soon.`;
+    return null;
   }
 
   if (item.type === "dm") {

@@ -48,6 +48,7 @@ export const queryKeys = {
       ["explore", "parliament", presentation, code] as const,
     dun: (code: string, presentation: string) =>
       ["explore", "dun", presentation, code] as const,
+    voter: (ic: string) => ["explore", "voter", ic] as const,
     kpis: (filters: Record<string, string>) =>
       ["explore", "kpis", filters] as const,
   },

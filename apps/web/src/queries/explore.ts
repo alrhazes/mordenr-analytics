@@ -318,6 +318,71 @@ export function useSeatDetail(
   return par;
 }
 
+export type VoterProfile = {
+  ic: string;
+  name: string;
+  gender: string;
+  race: string;
+  religion: string;
+  birthDate: string;
+  birthDateDisplay: string;
+  age: number | null;
+  birthPlace: string;
+  addressHtml: string;
+  addresses: Array<{
+    fullAddress: string;
+    latitude: string;
+    longitude: string;
+    source: string;
+  }>;
+  phones: string[];
+  emails: string[];
+  social: Array<{ network: string; url: string }>;
+  education: Array<{
+    confermentDate: string;
+    title: string;
+    institution: string;
+  }>;
+  income: { amount: number | null; class: string };
+  partyMemberships: Array<{
+    name: string;
+    membershipNo: string;
+    branchName: string;
+    divisionName: string;
+    stateName: string;
+    status: string;
+    partyLogo: string;
+    partyLogoFallback: string;
+  }>;
+  sikap: string;
+  state: string;
+  lokaliti: string;
+  dmCode: string;
+  dmName: string;
+  dunCode: string;
+  dunName: string;
+  parliamentCode: string;
+  parliamentName: string;
+  mapCode: string;
+  partyPar: string;
+  partyDun: string;
+  partyParLogo: string;
+  partyDunLogo: string;
+  partyLogoFallback: string;
+  photo?: string;
+  photoLocal?: string;
+  photoFallback?: string;
+};
+
+export function useVoterProfile(ic: string | null) {
+  return useQuery({
+    queryKey: queryKeys.explore.voter(ic || ""),
+    queryFn: () => api<VoterProfile>(`/explore/voters/${encodeURIComponent(ic!)}`),
+    enabled: Boolean(ic && /^\d{12}$/.test(ic)),
+    staleTime: 60_000,
+  });
+}
+
 export async function verifyOps66Password(password: string) {
   return api<{ ok: boolean }>("/explore/ops66/verify", {
     method: "POST",

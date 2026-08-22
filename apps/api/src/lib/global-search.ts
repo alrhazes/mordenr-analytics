@@ -12,6 +12,14 @@ const DEFAULT_TOTAL_RECORDS = 21_000_000;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 50;
 
+/** Per-type caps so one category cannot crowd out the rest (bdcat mixes types). */
+const FALLBACK_TYPE_LIMITS = {
+  dm: 5,
+  dun: 10,
+  par: 10,
+  voters: 25,
+} as const;
+
 export type GlobalSearchSuggestion = {
   value: string;
   label: string;
@@ -233,24 +241,20 @@ async function searchVotersByName(
   }
 
   const boolean = buildBooleanNameQuery(q);
-  if (boolean) {
-    try {
-      const [voterRows] = await pool.query<RowDataPacket[]>(
-        `SELECT nama, ic, parlimen, parliament_code, map_code
-         FROM electorals_register
-         WHERE MATCH(nama) AGAINST (? IN BOOLEAN MODE)
-         LIMIT ?`,
-        [boolean, limit],
-      );
-      if (voterRows?.length) {
-        return voterRows.map(mapVoterRow);
-      }
-    } catch {
-      /* electorals_register FULLTEXT may be unavailable */
-    }
-  }
+  if (!boolean) return [];
 
-  return searchVotersByLikeTokens(pool, likeTokens, limit);
+  try {
+    const [voterRows] = await pool.query<RowDataPacket[]>(
+      `SELECT nama, ic, parlimen, parliament_code, map_code
+       FROM electorals_register
+       WHERE MATCH(nama) AGAINST (? IN BOOLEAN MODE)
+       LIMIT ?`,
+      [boolean, limit],
+    );
+    return (voterRows || []).map(mapVoterRow);
+  } catch {
+    return [];
+  }
 }
 
 async function searchVotersByLikeTokens(
@@ -270,16 +274,229 @@ async function searchVotersByLikeTokens(
   return (likeRows || []).map(mapVoterRow);
 }
 
+function nameSearchTokens(q: string): string[] {
+  return buildLikeNameTokens(q);
+}
+
+function isMultiTokenNameSearch(q: string): boolean {
+  return nameSearchTokens(q).length >= 2;
+}
+
+function tokenLikeClause(column: string, tokens: string[]) {
+  return {
+    where: tokens.map(() => `LOWER(${column}) LIKE ?`).join(" AND "),
+    params: tokens.map((token) => `%${token}%`),
+  };
+}
+
+function mergeFallbackResults(
+  q: string,
+  groups: {
+    dm: GlobalSearchSuggestion[];
+    dun: GlobalSearchSuggestion[];
+    par: GlobalSearchSuggestion[];
+    voters: GlobalSearchSuggestion[];
+  },
+  limit: number,
+): GlobalSearchSuggestion[] {
+  const ordered = isMultiTokenNameSearch(q)
+    ? [...groups.dm, ...groups.dun, ...groups.par, ...groups.voters]
+    : [...groups.voters, ...groups.dm, ...groups.dun, ...groups.par];
+  return ordered.slice(0, limit);
+}
+
+async function searchDmByName(
+  pool: ReturnType<typeof getKnowledgePool>,
+  q: string,
+  limit: number,
+): Promise<GlobalSearchSuggestion[]> {
+  const tokens = nameSearchTokens(q);
+  if (!tokens.length || limit <= 0) return [];
+
+  const { where, params: tokenParams } = tokenLikeClause("dm_name", tokens);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT dm_code, dm_name, map_code, dm_state, dun_code
+     FROM electorals_dm_main
+     WHERE ${where}
+     ORDER BY dm_state, dm_name
+     LIMIT ?`,
+    [...tokenParams, limit],
+  );
+
+  return (rows || []).map((r) => ({
+    value: `${String(r.dm_code)} ${String(r.dm_name).toUpperCase()}`,
+    label: "DM",
+    id: String(r.dm_code),
+    type: "dm",
+    totalRecords: 0,
+    icon: "fa fa-map-signs",
+    extras: {
+      map_code: r.map_code,
+      dm_code: r.dm_code,
+      dun_code: r.dun_code,
+    },
+    ic: "",
+    state: String(r.dm_state || "").toUpperCase(),
+    mapCode: String(r.map_code || ""),
+  }));
+}
+
+async function searchParliamentByName(
+  pool: ReturnType<typeof getKnowledgePool>,
+  q: string,
+  limit: number,
+): Promise<GlobalSearchSuggestion[]> {
+  const tokens = nameSearchTokens(q);
+  if (!tokens.length || limit <= 0) return [];
+
+  const nameClause = tokenLikeClause("parliament_name", tokens);
+  const codeClause = tokenLikeClause("parliament_code", tokens);
+  const memberClause = tokenLikeClause("parliament_ahli", tokens);
+  const partyClause = tokenLikeClause("parliament_party", tokens);
+  const stateClause = tokenLikeClause("parliament_statename", tokens);
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       parliament_code AS code,
+       parliament_name AS name,
+       UPPER(parliament_statename) AS state,
+       parliament_ahli AS member,
+       parliament_party AS party,
+       parliament_group AS partyGroup,
+       REPLACE(parliament_partylogo, ' ', '_') AS partyLogoFile,
+       REPLACE(parliament_grouplogo, ' ', '_') AS groupLogoFile
+     FROM electorals_parliament
+     WHERE parliament_election = 'GE15'
+       AND (
+         (${nameClause.where})
+         OR (${codeClause.where})
+         OR (${memberClause.where})
+         OR (${partyClause.where})
+         OR (${stateClause.where})
+       )
+     ORDER BY parliament_statename, parliament_name
+     LIMIT ?`,
+    [
+      ...nameClause.params,
+      ...codeClause.params,
+      ...memberClause.params,
+      ...partyClause.params,
+      ...stateClause.params,
+      limit,
+    ],
+  );
+
+  return (rows || []).map((r) => {
+    const code = String(r.code);
+    const media = seatMediaPaths({
+      code,
+      electoralType: "parliament",
+      presentation: "normal",
+      partyLogoFile: r.partyLogoFile,
+      groupLogoFile: r.groupLogoFile,
+    });
+    return {
+      value: `PAR : ${String(r.name).toUpperCase()} (${code})`,
+      label: String(r.state),
+      id: code,
+      type: "par",
+      totalRecords: 0,
+      icon: "fa fa-institution",
+      extras: { map_code: code },
+      ic: "",
+      member: String(r.member || ""),
+      party: String(r.party || ""),
+      partyGroup: String(r.partyGroup || ""),
+      state: String(r.state || ""),
+      electoralType: "parliament" as const,
+      mapCode: code,
+      ...media,
+    };
+  });
+}
+
+async function searchDunByName(
+  pool: ReturnType<typeof getKnowledgePool>,
+  q: string,
+  limit: number,
+): Promise<GlobalSearchSuggestion[]> {
+  const tokens = nameSearchTokens(q);
+  if (!tokens.length || limit <= 0) return [];
+
+  const nameClause = tokenLikeClause("dun_name", tokens);
+  const codeClause = tokenLikeClause("dun_mapcode", tokens);
+  const memberClause = tokenLikeClause("dun_ahli", tokens);
+  const partyClause = tokenLikeClause("dun_party", tokens);
+  const stateClause = tokenLikeClause("dun_statename", tokens);
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       dun_mapcode AS code,
+       dun_name AS name,
+       UPPER(dun_statename) AS state,
+       dun_ahli AS member,
+       dun_party AS party,
+       dun_group AS partyGroup,
+       REPLACE(dun_partylogo, ' ', '_') AS partyLogoFile,
+       REPLACE(dun_grouplogo, ' ', '_') AS groupLogoFile
+     FROM electorals_dun
+     WHERE (
+       (${nameClause.where})
+       OR (${codeClause.where})
+       OR (${memberClause.where})
+       OR (${partyClause.where})
+       OR (${stateClause.where})
+     )
+     ORDER BY dun_statename, dun_name
+     LIMIT ?`,
+    [
+      ...nameClause.params,
+      ...codeClause.params,
+      ...memberClause.params,
+      ...partyClause.params,
+      ...stateClause.params,
+      limit,
+    ],
+  );
+
+  return (rows || []).map((r) => {
+    const code = String(r.code);
+    const media = seatMediaPaths({
+      code,
+      electoralType: "dun",
+      presentation: "normal",
+      partyLogoFile: r.partyLogoFile,
+      groupLogoFile: r.groupLogoFile,
+    });
+    return {
+      value: `DUN : ${String(r.name).toUpperCase()} (${code})`,
+      label: String(r.state),
+      id: code,
+      type: "dun",
+      totalRecords: 0,
+      icon: "fa fa-institution",
+      extras: { map_code: code },
+      ic: "",
+      member: String(r.member || ""),
+      party: String(r.party || ""),
+      partyGroup: String(r.partyGroup || ""),
+      state: String(r.state || ""),
+      electoralType: "dun" as const,
+      mapCode: code,
+      ...media,
+    };
+  });
+}
+
 async function searchElectoralFallback(
   q: string,
   limit: number,
 ): Promise<GlobalSearchSuggestion[]> {
   const pool = getKnowledgePool();
-  const term = q.trim().toLowerCase();
+  const term = q.trim();
   if (!term) return [];
 
   const mode = parseSearchMode(q);
-  const suggestions: GlobalSearchSuggestion[] = [];
 
   if (mode === "ic" || mode === "phone" || mode === "email") {
     let ics: string[] = [];
@@ -308,127 +525,19 @@ async function searchElectoralFallback(
          LIMIT ?`,
         [...ics, limit],
       );
-      for (const r of rows || []) {
-        suggestions.push(mapVoterRow(r));
-      }
+      return (rows || []).map(mapVoterRow);
     }
-    return suggestions;
+    return [];
   }
 
-  const like = `%${term}%`;
-  const [parRows] = await pool.query<RowDataPacket[]>(
-    `SELECT
-       parliament_code AS code,
-       parliament_name AS name,
-       UPPER(parliament_statename) AS state,
-       parliament_ahli AS member,
-       parliament_party AS party,
-       parliament_group AS partyGroup,
-       REPLACE(parliament_partylogo, ' ', '_') AS partyLogoFile,
-       REPLACE(parliament_grouplogo, ' ', '_') AS groupLogoFile
-     FROM electorals_parliament
-     WHERE parliament_election = 'GE15'
-       AND (
-         LOWER(parliament_name) LIKE ?
-         OR LOWER(parliament_code) LIKE ?
-         OR LOWER(parliament_ahli) LIKE ?
-         OR LOWER(parliament_party) LIKE ?
-         OR LOWER(parliament_statename) LIKE ?
-       )
-     ORDER BY parliament_statename, parliament_name
-     LIMIT ?`,
-    [like, like, like, like, like, Math.ceil(limit / 2)],
-  );
+  const [dm, dun, par, voters] = await Promise.all([
+    searchDmByName(pool, q, FALLBACK_TYPE_LIMITS.dm),
+    searchDunByName(pool, q, FALLBACK_TYPE_LIMITS.dun),
+    searchParliamentByName(pool, q, FALLBACK_TYPE_LIMITS.par),
+    searchVotersByName(pool, q, FALLBACK_TYPE_LIMITS.voters),
+  ]);
 
-  for (const r of parRows || []) {
-    const code = String(r.code);
-    const media = seatMediaPaths({
-      code,
-      electoralType: "parliament",
-      presentation: "normal",
-      partyLogoFile: r.partyLogoFile,
-      groupLogoFile: r.groupLogoFile,
-    });
-    suggestions.push({
-      value: `PAR : ${String(r.name).toUpperCase()} (${code})`,
-      label: String(r.state),
-      id: code,
-      type: "par",
-      totalRecords: 0,
-      icon: "fa fa-institution",
-      extras: { map_code: code },
-      ic: "",
-      member: String(r.member || ""),
-      party: String(r.party || ""),
-      partyGroup: String(r.partyGroup || ""),
-      state: String(r.state || ""),
-      electoralType: "parliament",
-      mapCode: code,
-      ...media,
-    });
-  }
-
-  const [dunRows] = await pool.query<RowDataPacket[]>(
-    `SELECT
-       dun_mapcode AS code,
-       dun_name AS name,
-       UPPER(dun_statename) AS state,
-       dun_ahli AS member,
-       dun_party AS party,
-       dun_group AS partyGroup,
-       REPLACE(dun_partylogo, ' ', '_') AS partyLogoFile,
-       REPLACE(dun_grouplogo, ' ', '_') AS groupLogoFile
-     FROM electorals_dun
-     WHERE (
-       LOWER(dun_name) LIKE ?
-       OR LOWER(dun_mapcode) LIKE ?
-       OR LOWER(dun_ahli) LIKE ?
-       OR LOWER(dun_party) LIKE ?
-       OR LOWER(dun_statename) LIKE ?
-     )
-     ORDER BY dun_statename, dun_name
-     LIMIT ?`,
-    [like, like, like, like, like, Math.ceil(limit / 2)],
-  );
-
-  for (const r of dunRows || []) {
-    const code = String(r.code);
-    const media = seatMediaPaths({
-      code,
-      electoralType: "dun",
-      presentation: "normal",
-      partyLogoFile: r.partyLogoFile,
-      groupLogoFile: r.groupLogoFile,
-    });
-    suggestions.push({
-      value: `DUN : ${String(r.name).toUpperCase()} (${code})`,
-      label: String(r.state),
-      id: code,
-      type: "dun",
-      totalRecords: 0,
-      icon: "fa fa-institution",
-      extras: { map_code: code },
-      ic: "",
-      member: String(r.member || ""),
-      party: String(r.party || ""),
-      partyGroup: String(r.partyGroup || ""),
-      state: String(r.state || ""),
-      electoralType: "dun",
-      mapCode: code,
-      ...media,
-    });
-  }
-
-  if (suggestions.length < limit) {
-    const voterMatches = await searchVotersByName(
-      pool,
-      q,
-      limit - suggestions.length,
-    );
-    suggestions.push(...voterMatches);
-  }
-
-  return suggestions.slice(0, limit);
+  return mergeFallbackResults(q, { dm, dun, par, voters }, limit);
 }
 
 async function enrichElectoralSuggestions(

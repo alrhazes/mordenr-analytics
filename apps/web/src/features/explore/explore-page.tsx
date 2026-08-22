@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ExploreMap } from "./explore-map";
 import { PartySeatsChart } from "./party-seats-chart";
 import { ConstituencySheet } from "./constituency-sheet";
+import { VoterSheet } from "./voter-sheet";
 import { MapControlBar } from "./map-control-bar";
 import { SeatListDialog } from "./seat-list-dialog";
 import { DataInventoryDialog } from "./data-inventory-dialog";
@@ -29,6 +30,7 @@ export function ExplorePage() {
   const viewId = params.get("view");
   const seatParam = params.get("seat");
   const seatTypeParam = params.get("seatType");
+  const voterParam = params.get("voter");
   const appliedViewRef = useRef<string | null>(null);
 
   const filters = useExploreWorkspaceStore((s) => s.filters);
@@ -145,7 +147,18 @@ export function ExplorePage() {
     setParams,
   ]);
 
-  // Match bdcat: always load seat polygons (national + filtered), not center points
+  function closeVoterProfile() {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("voter");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  // Match bdcat: always load seat polygons
   const summary = useExploreSummary({
     state: appliedState,
     level: mapLevel,
@@ -246,6 +259,7 @@ export function ExplorePage() {
       )}
 
       <ConstituencySheet />
+      <VoterSheet ic={voterParam} onClose={closeVoterProfile} />
       <SeatListDialog />
       <DataInventoryDialog />
       <Ops66PasswordDialog />

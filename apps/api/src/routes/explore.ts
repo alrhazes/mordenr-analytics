@@ -7,6 +7,7 @@ import {
   seatListRowMedia,
   seatMediaPaths,
 } from "../lib/electoral-media.js";
+import { getVoterProfile } from "../lib/voter-profile.js";
 
 const ELECTION = "GE15";
 
@@ -1091,4 +1092,20 @@ exploreRoutes.get("/duns/:code", async (c) => {
       hidePartyLogo: media.hidePartyLogo,
     },
   });
+});
+
+exploreRoutes.get("/voters/:ic", async (c) => {
+  const ic = c.req.param("ic").trim();
+  if (!/^\d{12}$/.test(ic)) {
+    return c.json({ error: "Invalid IC" }, 400);
+  }
+
+  try {
+    const profile = await getVoterProfile(ic);
+    if (!profile) return c.json({ error: "Not found" }, 404);
+    return c.json(profile);
+  } catch (err) {
+    console.error("voter profile error", err);
+    return c.json({ error: "Failed to load voter profile" }, 500);
+  }
 });

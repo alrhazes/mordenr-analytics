@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import type { RowDataPacket } from "mysql2";
 import { getKnowledgePool } from "../db/knowledge.js";
-import { seatDetailMedia } from "../lib/electoral-media.js";
+import {
+  seatDetailMedia,
+  seatListRowMedia,
+  seatMediaPaths,
+} from "../lib/electoral-media.js";
 
 const ELECTION = "GE15";
 
@@ -539,6 +543,8 @@ exploreRoutes.get("/search", async (c) => {
        parliament_ahli AS member,
        parliament_party AS party,
        parliament_group AS partyGroup,
+       REPLACE(parliament_partylogo, ' ', '_') AS partyLogoFile,
+       REPLACE(parliament_grouplogo, ' ', '_') AS groupLogoFile,
        parliament_color AS color
      FROM \`${parTable}\`
      ${parElection}
@@ -559,6 +565,8 @@ exploreRoutes.get("/search", async (c) => {
          dun_ahli AS member,
          dun_party AS party,
          dun_group AS partyGroup,
+         REPLACE(dun_partylogo, ' ', '_') AS partyLogoFile,
+         REPLACE(dun_grouplogo, ' ', '_') AS groupLogoFile,
          dun_color AS color,
          parliament_code AS parliamentCode
        FROM \`${dunTable}\`
@@ -567,32 +575,46 @@ exploreRoutes.get("/search", async (c) => {
     dunRows = rows || [];
   }
 
+  function searchItem(
+    r: RowDataPacket,
+    electoralType: "parliament" | "dun",
+  ) {
+    const code = String(r.code);
+    const media = seatMediaPaths({
+      code,
+      electoralType,
+      presentation,
+      partyLogoFile: r.partyLogoFile,
+      groupLogoFile: r.groupLogoFile,
+    });
+    return {
+      code,
+      mapCode: String(r.mapCode),
+      name: String(r.name),
+      electoralType,
+      state: String(r.state),
+      member: String(r.member || ""),
+      party: String(r.party || ""),
+      partyGroup: String(r.partyGroup || ""),
+      color: String(r.color || "#999999"),
+      display:
+        electoralType === "parliament"
+          ? `PAR : ${String(r.name).toUpperCase()} (${code})`
+          : `DUN : ${String(r.name).toUpperCase()} (${code})`,
+      partyLogo: media.partyLogo,
+      groupLogo: media.groupLogo,
+      partyLogoFallback: media.partyLogoFallback,
+      groupLogoFallback: media.groupLogoFallback,
+      hidePartyLogo: media.hidePartyLogo,
+      ...(electoralType === "dun"
+        ? { parliamentCode: String(r.parliamentCode || "") }
+        : {}),
+    };
+  }
+
   const all = [
-    ...(parRows || []).map((r) => ({
-      code: String(r.code),
-      mapCode: String(r.mapCode),
-      name: String(r.name),
-      electoralType: "parliament" as const,
-      state: String(r.state),
-      member: String(r.member || ""),
-      party: String(r.party || ""),
-      partyGroup: String(r.partyGroup || ""),
-      color: String(r.color || "#999999"),
-      display: `PAR : ${String(r.name).toUpperCase()} (${r.code})`,
-    })),
-    ...dunRows.map((r) => ({
-      code: String(r.code),
-      mapCode: String(r.mapCode),
-      name: String(r.name),
-      electoralType: "dun" as const,
-      state: String(r.state),
-      member: String(r.member || ""),
-      party: String(r.party || ""),
-      partyGroup: String(r.partyGroup || ""),
-      color: String(r.color || "#999999"),
-      parliamentCode: String(r.parliamentCode || ""),
-      display: `DUN : ${String(r.name).toUpperCase()} (${r.code})`,
-    })),
+    ...(parRows || []).map((r) => searchItem(r, "parliament")),
+    ...dunRows.map((r) => searchItem(r, "dun")),
   ];
 
   const filtered = q
@@ -685,6 +707,8 @@ exploreRoutes.get("/seats", async (c) => {
          p.parliament_ahli AS member,
          p.parliament_group AS partyGroup,
          p.parliament_party AS party,
+         REPLACE(p.parliament_partylogo, ' ', '_') AS partyLogoFile,
+         REPLACE(p.parliament_grouplogo, ' ', '_') AS groupLogoFile,
          CONCAT(p.parliament_code, ' - ', p.parliament_name) AS seatLabel,
          COALESCE(v.voters_total, p.total_electorate) AS voters,
          IF(party.party_gov, 'YA', 'TIDAK') AS government,
@@ -692,11 +716,19 @@ exploreRoutes.get("/seats", async (c) => {
          p.parliament_year AS year,
          p.candidate_majority_won AS majority,
          p.candidate_majority_percent AS majorityPercent,
-         p.total_turnout AS turnout
+         p.total_turnout AS turnout,
+         d.voters_race_malay AS raceMalay,
+         d.voters_race_chinese AS raceChinese,
+         d.voters_race_indian AS raceIndian,
+         d.voters_race_bumi_sabah AS raceBumiSabah,
+         d.voters_race_bumi_sarawak AS raceBumiSarawak,
+         d.voters_race_others AS raceOthers
        FROM \`${table}\` p
        LEFT JOIN electorals_party party ON p.parliament_party = party.party_name
        LEFT JOIN electorals_voters v
          ON p.parliament_code = v.voters_area_code AND v.voters_area = 'PARLIMEN'
+       LEFT JOIN electorals_voters_demography d
+         ON p.parliament_code = d.voters_area_code AND d.voters_area = 'PARLIMEN'
        ${clause}
        ORDER BY p.parliament_statename, p.parliament_code`,
       params,
@@ -714,23 +746,45 @@ exploreRoutes.get("/seats", async (c) => {
         "government",
         "state",
         "year",
+        "ethnicity",
         "majority",
         "turnout",
       ],
-      rows: (rows || []).map((r) => ({
-        mapCode: String(r.mapCode),
-        member: String(r.member || ""),
-        partyGroup: String(r.partyGroup || ""),
-        party: String(r.party || ""),
-        seatLabel: String(r.seatLabel || ""),
-        voters: Number(r.voters ?? 0),
-        government: String(r.government || "TIDAK"),
-        state: String(r.state || ""),
-        year: String(r.year || ""),
-        majority: Number(r.majority ?? 0),
-        majorityPercent: Number(r.majorityPercent ?? 0),
-        turnout: Number(r.turnout ?? 0),
-      })),
+      rows: (rows || []).map((r) => {
+        const base = {
+          mapCode: String(r.mapCode),
+          member: String(r.member || ""),
+          partyGroup: String(r.partyGroup || ""),
+          party: String(r.party || ""),
+          seatLabel: String(r.seatLabel || ""),
+          voters: Number(r.voters ?? 0),
+          government: String(r.government || "TIDAK"),
+          state: String(r.state || ""),
+          year: String(r.year || ""),
+          majority: Number(r.majority ?? 0),
+          majorityPercent: Number(r.majorityPercent ?? 0),
+          turnout: Number(r.turnout ?? 0),
+        };
+        const media = seatListRowMedia(
+          {
+            ...base,
+            partyLogoFile: r.partyLogoFile,
+            groupLogoFile: r.groupLogoFile,
+            raceMalay: Number(r.raceMalay ?? 0),
+            raceChinese: Number(r.raceChinese ?? 0),
+            raceIndian: Number(r.raceIndian ?? 0),
+            raceBumiSabah: Number(r.raceBumiSabah ?? 0),
+            raceBumiSarawak: Number(r.raceBumiSarawak ?? 0),
+            raceOthers: Number(r.raceOthers ?? 0),
+          },
+          "parliament",
+          presentation,
+        );
+        return {
+          ...base,
+          ...media,
+        };
+      }),
     });
   }
 
@@ -767,6 +821,8 @@ exploreRoutes.get("/seats", async (c) => {
        p.dun_ahli AS member,
        p.dun_group AS partyGroup,
        p.dun_party AS party,
+       REPLACE(p.dun_partylogo, ' ', '_') AS partyLogoFile,
+       REPLACE(p.dun_grouplogo, ' ', '_') AS groupLogoFile,
        p.parliament_code AS parliamentCode,
        CONCAT(p.dun_mapcode, ' - ', p.dun_name) AS seatLabel,
        COALESCE(v.voters_total, p.total_electorate) AS voters,
@@ -775,11 +831,19 @@ exploreRoutes.get("/seats", async (c) => {
        p.dun_year AS year,
        p.candidate_majority_won AS majority,
        p.candidate_majority_percent AS majorityPercent,
-       p.total_turnout AS turnout
+       p.total_turnout AS turnout,
+       d.voters_race_malay AS raceMalay,
+       d.voters_race_chinese AS raceChinese,
+       d.voters_race_indian AS raceIndian,
+       d.voters_race_bumi_sabah AS raceBumiSabah,
+       d.voters_race_bumi_sarawak AS raceBumiSarawak,
+       d.voters_race_others AS raceOthers
      FROM \`${table}\` p
      LEFT JOIN electorals_party party ON p.dun_party = party.party_name
      LEFT JOIN electorals_voters v
        ON p.dun_mapcode = v.voters_area_code AND v.voters_area = 'DUN'
+     LEFT JOIN electorals_voters_demography d
+       ON p.dun_mapcode = d.voters_area_code AND d.voters_area = 'DUN'
      ${clause}
      ORDER BY p.dun_statename, p.dun_mapcode`,
     params,
@@ -798,24 +862,46 @@ exploreRoutes.get("/seats", async (c) => {
       "government",
       "state",
       "year",
+      "ethnicity",
       "majority",
       "turnout",
     ],
-    rows: (rows || []).map((r) => ({
-      mapCode: String(r.mapCode),
-      member: String(r.member || ""),
-      partyGroup: String(r.partyGroup || ""),
-      party: String(r.party || ""),
-      parliamentCode: String(r.parliamentCode || ""),
-      seatLabel: String(r.seatLabel || ""),
-      voters: Number(r.voters ?? 0),
-      government: String(r.government || "TIDAK"),
-      state: String(r.state || ""),
-      year: String(r.year || ""),
-      majority: Number(r.majority ?? 0),
-      majorityPercent: Number(r.majorityPercent ?? 0),
-      turnout: Number(r.turnout ?? 0),
-    })),
+    rows: (rows || []).map((r) => {
+      const base = {
+        mapCode: String(r.mapCode),
+        member: String(r.member || ""),
+        partyGroup: String(r.partyGroup || ""),
+        party: String(r.party || ""),
+        parliamentCode: String(r.parliamentCode || ""),
+        seatLabel: String(r.seatLabel || ""),
+        voters: Number(r.voters ?? 0),
+        government: String(r.government || "TIDAK"),
+        state: String(r.state || ""),
+        year: String(r.year || ""),
+        majority: Number(r.majority ?? 0),
+        majorityPercent: Number(r.majorityPercent ?? 0),
+        turnout: Number(r.turnout ?? 0),
+      };
+      const media = seatListRowMedia(
+        {
+          ...base,
+          partyLogoFile: r.partyLogoFile,
+          groupLogoFile: r.groupLogoFile,
+          raceMalay: Number(r.raceMalay ?? 0),
+          raceChinese: Number(r.raceChinese ?? 0),
+          raceIndian: Number(r.raceIndian ?? 0),
+          raceBumiSabah: Number(r.raceBumiSabah ?? 0),
+          raceBumiSarawak: Number(r.raceBumiSarawak ?? 0),
+          raceOthers: Number(r.raceOthers ?? 0),
+        },
+        "dun",
+        presentation,
+      );
+      return {
+        ...base,
+        ...media,
+      };
+    }),
   });
 });
 

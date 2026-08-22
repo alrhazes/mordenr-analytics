@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { Search, Undo2 } from "lucide-react";
 import { useSeatSearch } from "@/queries/explore";
+import type { SearchOption } from "@/queries/explore";
+import { PartyLogoPair } from "@/features/explore/party-logo-pair";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 
 export function SeatSearch() {
@@ -30,14 +32,25 @@ export function SeatSearch() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex h-10 flex-1 items-center rounded-md border border-[var(--color-line)] bg-white px-3 text-left text-sm text-[var(--color-ink-muted)] outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="flex h-10 flex-1 items-center gap-2 rounded-md border border-[var(--color-line)] bg-white px-3 text-left text-sm outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         >
           {searchSelection ? (
-            <span className="truncate text-[var(--color-ink)]">
-              {searchSelection.display}
-            </span>
+            <>
+              <PartyLogoPair
+                groupLogo={searchSelection.groupLogo}
+                partyLogo={searchSelection.partyLogo}
+                groupLogoFallback={searchSelection.groupLogoFallback}
+                partyLogoFallback={searchSelection.partyLogoFallback}
+                hidePartyLogo={searchSelection.hidePartyLogo}
+                groupAlt={searchSelection.partyGroup}
+                partyAlt={searchSelection.party}
+              />
+              <span className="truncate text-[var(--color-ink)]">
+                {searchSelection.display}
+              </span>
+            </>
           ) : (
-            <span className="truncate uppercase tracking-wide">
+            <span className="truncate uppercase tracking-wide text-[var(--color-ink-muted)]">
               Carian negeri, parlimen, dun, mp, ad…
             </span>
           )}
@@ -86,9 +99,9 @@ export function SeatSearch() {
                     className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-ink-muted)]"
                   >
                     {g.options.map((o) => (
-                      <Command.Item
+                      <SearchResultItem
                         key={o.code}
-                        value={o.code}
+                        option={o}
                         onSelect={() => {
                           resetAllFilters();
                           setMapLevel(
@@ -97,15 +110,7 @@ export function SeatSearch() {
                           setSearchSelection(o);
                           setOpen(false);
                         }}
-                        className="cursor-pointer rounded-md px-2 py-2 text-sm aria-selected:bg-[var(--color-accent)]/10"
-                      >
-                        <div className="font-medium text-[var(--color-ink)]">
-                          {o.display}
-                        </div>
-                        <div className="text-xs text-[var(--color-ink-muted)]">
-                          {o.member || "—"} · {o.party}
-                        </div>
-                      </Command.Item>
+                      />
                     ))}
                   </Command.Group>
                 ))}
@@ -115,5 +120,38 @@ export function SeatSearch() {
         </>
       )}
     </div>
+  );
+}
+
+function SearchResultItem({
+  option,
+  onSelect,
+}: {
+  option: SearchOption;
+  onSelect: () => void;
+}) {
+  return (
+    <Command.Item
+      value={option.code}
+      onSelect={onSelect}
+      className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-2 text-sm aria-selected:bg-[var(--color-accent)]/10"
+    >
+      <PartyLogoPair
+        groupLogo={option.groupLogo}
+        partyLogo={option.partyLogo}
+        groupLogoFallback={option.groupLogoFallback}
+        partyLogoFallback={option.partyLogoFallback}
+        hidePartyLogo={option.hidePartyLogo}
+        groupAlt={option.partyGroup}
+        partyAlt={option.party}
+        className="mt-0.5"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="font-medium text-[var(--color-ink)]">{option.display}</div>
+        <div className="text-xs text-[var(--color-ink-muted)]">
+          {option.member || "—"} · {option.party}
+        </div>
+      </div>
+    </Command.Item>
   );
 }

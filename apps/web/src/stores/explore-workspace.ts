@@ -26,6 +26,11 @@ export type SeatSearchHit = {
   partyGroup: string;
   color: string;
   display: string;
+  partyLogo: string;
+  groupLogo: string;
+  partyLogoFallback: string;
+  groupLogoFallback: string;
+  hidePartyLogo: boolean;
 };
 
 export type GeoFeatureProperties = {

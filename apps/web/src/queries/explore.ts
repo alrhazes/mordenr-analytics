@@ -116,6 +116,11 @@ export type SearchOption = {
   color: string;
   display: string;
   parliamentCode?: string;
+  partyLogo: string;
+  groupLogo: string;
+  partyLogoFallback: string;
+  groupLogoFallback: string;
+  hidePartyLogo: boolean;
 };
 
 export type SeatListRow = {
@@ -132,6 +137,19 @@ export type SeatListRow = {
   majorityPercent: number;
   turnout: number;
   parliamentCode?: string;
+  memberPhoto: string;
+  memberPhotoFallback: string;
+  partyLogo: string;
+  groupLogo: string;
+  partyLogoFallback: string;
+  groupLogoFallback: string;
+  hidePartyLogo: boolean;
+  stateLogo: string;
+  stateLogoFallback: string;
+  governmentLogo: string;
+  governmentLogoFallback: string;
+  ethnicityLabel: string;
+  ethnicityPercent: number;
 };
 
 function qs(params: Record<string, string | undefined | null>): string {

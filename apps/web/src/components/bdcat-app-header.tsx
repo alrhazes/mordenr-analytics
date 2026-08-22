@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
-import { MapPin, Search, User, Wifi } from "lucide-react";
+import { MapPin, Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NetworkSpeedBadge } from "@/components/network-speed-badge";
 import { useMe } from "@/queries/auth";
 import {
   formatGlobalSearchCount,
@@ -46,13 +47,7 @@ export function BdcatAppHeader({ sidebarToggle }: Props) {
         </span>
       </div>
       <div className="ml-auto flex flex-wrap items-center gap-3">
-        <span
-          className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[var(--color-ink-muted)]"
-          title="Network status"
-        >
-          <Wifi className="h-3.5 w-3.5 text-[var(--color-accent)]" />
-          Fast
-        </span>
+        <NetworkSpeedBadge />
         <EnterpriseGlobalSearch />
       </div>
     </header>

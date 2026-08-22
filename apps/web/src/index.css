@@ -45,4 +45,20 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  @keyframes wifi-flash {
+    0%,
+    50%,
+    100% {
+      opacity: 1;
+    }
+    25%,
+    75% {
+      opacity: 0;
+    }
+  }
+
+  .animate-wifi-flash {
+    animation: wifi-flash 2s ease infinite;
+  }
 }

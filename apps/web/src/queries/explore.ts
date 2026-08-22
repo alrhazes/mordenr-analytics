@@ -372,6 +372,39 @@ export type VoterProfile = {
   photo?: string;
   photoLocal?: string;
   photoFallback?: string;
+  callCentre: {
+    audioPath: string;
+    attitude: string;
+    attitudeLabel: string;
+    campaignName: string;
+    callStatusId: number | null;
+    audioDate: string;
+    responses: Array<{
+      questionId: number;
+      questionText: string;
+      answers: Array<{ answerId: number; answerText: string }>;
+    }>;
+  } | null;
+  whatsappBlast: {
+    name: string;
+    phoneNo: string;
+    campaigns: Array<{
+      id: number;
+      url: string;
+      caption: string;
+      sentiment: string;
+      sentimentLabel: string;
+      screenshotDate: string;
+      screenshotDateDisplay: string;
+      campaignName: string;
+    }>;
+  } | null;
+  organizations: Array<{
+    position: string;
+    organization: string;
+    type: string;
+    fullPosition: string;
+  }>;
 };
 
 export function useVoterProfile(ic: string | null) {

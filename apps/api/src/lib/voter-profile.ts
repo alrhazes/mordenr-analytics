@@ -1,6 +1,12 @@
 import type { RowDataPacket } from "mysql2";
 import { getKnowledgePool } from "../db/knowledge.js";
 import { getBirthPlaceFromIc } from "./birth-place.js";
+import {
+  getVoterEnrichment,
+  type VoterCallCentre,
+  type VoterOrganization,
+  type VoterWhatsappBlast,
+} from "./voter-enrichment.js";
 import { voterPhotoPaths } from "./electoral-media.js";
 
 export type VoterEducation = {
@@ -63,6 +69,9 @@ export type VoterProfile = {
   photo?: string;
   photoLocal?: string;
   photoFallback?: string;
+  callCentre: VoterCallCentre | null;
+  whatsappBlast: VoterWhatsappBlast | null;
+  organizations: VoterOrganization[];
 };
 
 function isValidIc(ic: string): boolean {
@@ -292,6 +301,7 @@ export async function getVoterProfile(icRaw: string): Promise<VoterProfile | nul
 
   const registerAge = Number(main.age);
   const computedAge = computeAge(main.tarikh_lahir);
+  const enrichment = await getVoterEnrichment(ic);
 
   return {
     ic: String(main.ic ?? ic),
@@ -327,5 +337,6 @@ export async function getVoterProfile(icRaw: string): Promise<VoterProfile | nul
     partyDunLogo: partyLogoPath(partyDun),
     partyLogoFallback: "parties/ind.png",
     ...voterPhotoPaths(ic),
+    ...enrichment,
   };
 }

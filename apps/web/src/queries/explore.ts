@@ -7,17 +7,48 @@ import type {
   Presentation,
 } from "@/stores/explore-workspace";
 
-export type ExploreKpi = {
+export type ExploreRingkasanStat = {
   id: string;
   label: string;
   value: string | number;
-  hint: string;
+  subValue?: string;
 };
 
 export type PartySeat = {
   party: string;
   color: string;
   seats: number;
+};
+
+export type BreakdownChip = {
+  name: string;
+  label: string;
+  seats: number;
+  contested: number;
+  isGovernment: boolean;
+  logo: string;
+};
+
+export type BreakdownSection = {
+  government: BreakdownChip[];
+  nonGovernment: BreakdownChip[];
+  governmentTotal: number;
+  nonGovernmentTotal: number;
+};
+
+export type RingkasanBreakdown = {
+  showParliament: boolean;
+  showDun: boolean;
+  parliamentCoalition: BreakdownSection;
+  parliamentParty: BreakdownSection;
+  dunCoalition: BreakdownSection;
+  dunParty: BreakdownSection;
+};
+
+export type VotersPartyChip = {
+  name: string;
+  count: number;
+  logo: string;
 };
 
 export type ExploreSummary = {
@@ -27,8 +58,13 @@ export type ExploreSummary = {
   level?: string;
   presentation?: string;
   state: string | null;
-  kpis: ExploreKpi[];
+  area: string;
+  areaValue: string | null;
+  areaLabel: string;
+  stats: ExploreRingkasanStat[];
   partySeats: PartySeat[];
+  breakdown: RingkasanBreakdown;
+  votersParty: VotersPartyChip[];
 };
 
 export type ExploreState = { name: string; seats: number };
@@ -163,6 +199,8 @@ function qs(params: Record<string, string | undefined | null>): string {
 
 export function useExploreSummary(opts: {
   state: string;
+  area: string;
+  value: string;
   level: MapLevel;
   presentation: Presentation;
 }) {
@@ -172,6 +210,8 @@ export function useExploreSummary(opts: {
       api<ExploreSummary>(
         `/explore/summary${qs({
           state: opts.state,
+          area: opts.area,
+          value: opts.value,
           level: opts.level,
           presentation: opts.presentation,
         })}`,

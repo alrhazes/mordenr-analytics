@@ -24,8 +24,16 @@ export function ConstituencySheet() {
   const setSelected = useExploreWorkspaceStore(
     (s) => s.setSelectedConstituencyId,
   );
+  const setSelectedElectoralType = useExploreWorkspaceStore(
+    (s) => s.setSelectedElectoralType,
+  );
   const type = electoralType || mapLevel;
   const detail = useSeatDetail(code, type, presentation);
+
+  function closeDetail() {
+    setSelected(null);
+    setSelectedElectoralType(null);
+  }
 
   return (
     <AnimatePresence>
@@ -38,7 +46,7 @@ export function ConstituencySheet() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setSelected(null)}
+            onClick={closeDetail}
           />
           <motion.aside
             initial={{ x: 28, opacity: 0 }}
@@ -64,7 +72,7 @@ export function ConstituencySheet() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSelected(null)}
+                onClick={closeDetail}
               >
                 <X className="h-4 w-4" />
               </Button>

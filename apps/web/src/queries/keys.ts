@@ -9,6 +9,8 @@ export const queryKeys = {
       ["explore", "summary", state || "all"] as const,
     summaryKey: (opts: {
       state: string;
+      area: string;
+      value: string;
       level: string;
       presentation: string;
     }) =>
@@ -17,7 +19,8 @@ export const queryKeys = {
         "summary",
         opts.level,
         opts.presentation,
-        opts.state || "all",
+        opts.area,
+        opts.value || opts.state || "all",
       ] as const,
     states: ["explore", "states"] as const,
     statesKey: (level: string, presentation: string) =>

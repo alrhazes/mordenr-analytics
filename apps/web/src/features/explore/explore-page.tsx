@@ -6,9 +6,8 @@ import {
 } from "@/queries/explore";
 import { useSavedView } from "@/queries/library";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ExploreMap } from "./explore-map";
-import { PartySeatsChart } from "./party-seats-chart";
+import { ElectionStatusSummary } from "./election-status-summary";
 import { ConstituencySheet } from "./constituency-sheet";
 import { VoterSheet } from "./voter-sheet";
 import { MapControlBar } from "./map-control-bar";
@@ -16,11 +15,11 @@ import { SeatListDialog } from "./seat-list-dialog";
 import { DataInventoryDialog } from "./data-inventory-dialog";
 import { Ops66PasswordDialog } from "./ops66-password-dialog";
 import { applyMapFilters } from "./lib/map-filters";
-
-function formatNumber(n: number | string) {
-  if (typeof n === "string") return n;
-  return new Intl.NumberFormat("en-MY").format(n);
-}
+import {
+  resolveRingkasanScope,
+  scopeAreaLabel,
+  summaryMatchesScope,
+} from "./lib/ringkasan-scope";
 
 export function ExplorePage() {
   const [params, setParams] = useSearchParams();
@@ -41,6 +40,12 @@ export function ExplorePage() {
   const setFilterField = useExploreWorkspaceStore((s) => s.setFilterField);
   const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
   const setColorMode = useExploreWorkspaceStore((s) => s.setColorMode);
+  const selectedConstituencyId = useExploreWorkspaceStore(
+    (s) => s.selectedConstituencyId,
+  );
+  const selectedElectoralType = useExploreWorkspaceStore(
+    (s) => s.selectedElectoralType,
+  );
   const setSelectedConstituencyId = useExploreWorkspaceStore(
     (s) => s.setSelectedConstituencyId,
   );
@@ -51,8 +56,18 @@ export function ExplorePage() {
 
   const savedView = useSavedView(viewId);
 
-  const appliedState =
-    filters.state && filters.state !== "0" ? filters.state : "";
+  // Only use URL state before one-time hydrate; after that filters.state wins (incl. reset).
+  const allowUrlStateFallbackRef = useRef(Boolean(urlState));
+
+  const appliedState = useMemo(() => {
+    const fromFilter =
+      filters.state && filters.state !== "0" ? filters.state : "";
+    if (fromFilter) return fromFilter.toUpperCase();
+    if (allowUrlStateFallbackRef.current && urlState) {
+      return urlState.toUpperCase();
+    }
+    return "";
+  }, [filters.state, urlState]);
 
   // Apply saved view once
   useEffect(() => {
@@ -114,6 +129,7 @@ export function ExplorePage() {
         setSelectedElectoralType(seatTypeParam);
       }
     }
+    allowUrlStateFallbackRef.current = false;
     // Mount-only hydrate — store is source of truth after this
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewId]);
@@ -158,9 +174,21 @@ export function ExplorePage() {
     );
   }
 
-  // Match bdcat: always load seat polygons
+  // Match bdcat generateRingkasanPrediction: seat > state filter > negara
+  const ringkasanScope = useMemo(
+    () =>
+      resolveRingkasanScope({
+        selectedConstituencyId,
+        selectedElectoralType,
+        appliedState,
+      }),
+    [selectedConstituencyId, selectedElectoralType, appliedState],
+  );
+
   const summary = useExploreSummary({
     state: appliedState,
+    area: ringkasanScope.area,
+    value: ringkasanScope.value,
     level: mapLevel,
     presentation,
   });
@@ -170,6 +198,13 @@ export function ExplorePage() {
     presentation,
     polygons: true,
   });
+
+  const summaryMatches = summaryMatchesScope(summary.data, ringkasanScope);
+  const summaryData = summaryMatches ? summary.data : undefined;
+  const summaryPending =
+    (summary.isLoading && !summary.isPlaceholderData) ||
+    (summary.isFetching && !summaryMatches);
+  const summaryAreaLabel = summaryData?.areaLabel ?? scopeAreaLabel(ringkasanScope);
 
   const filteredGeo = useMemo(() => {
     if (!geo.data) return undefined;
@@ -205,52 +240,15 @@ export function ExplorePage() {
         appliedState={appliedState}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {summary.isLoading &&
-            !summary.isPlaceholderData &&
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          {summary.data?.kpis.map((kpi) => (
-            <div
-              key={kpi.id}
-              className="rounded-xl border border-[var(--color-line)] bg-white px-4 py-3"
-            >
-              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-ink-muted)]">
-                {kpi.label}
-              </div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums text-[var(--color-ink)]">
-                {kpi.id === "turnout"
-                  ? `${kpi.value}%`
-                  : formatNumber(kpi.value)}
-              </div>
-              <div className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                {kpi.hint}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="rounded-xl border border-[var(--color-line)] bg-white p-4">
-          <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-            Seats by party
-          </h3>
-          <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-            {summary.data?.election || "GE15"}
-            {presentation === "ops66" ? " · OPS66" : ""}
-            {appliedState ? ` · ${appliedState}` : " · National"}
-            {mapLevel === "dun" ? " · DUN" : " · Parlimen"}
-          </p>
-          {summary.isLoading && !summary.isPlaceholderData ? (
-            <Skeleton className="mt-3 h-40" />
-          ) : (
-            <div className="mt-1">
-              <PartySeatsChart data={summary.data?.partySeats || []} />
-            </div>
-          )}
-        </div>
-      </div>
+      <ElectionStatusSummary
+        data={summaryData}
+        areaLabel={summaryAreaLabel}
+        isLoading={summaryPending}
+        isFetching={summary.isFetching && !summary.isLoading}
+        error={summary.error as Error | null}
+        mapLevel={mapLevel}
+        presentation={presentation}
+      />
 
       {geo.isError && (
         <p className="text-sm text-[var(--color-danger)]">

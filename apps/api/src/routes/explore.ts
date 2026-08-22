@@ -8,6 +8,8 @@ import {
   seatMediaPaths,
 } from "../lib/electoral-media.js";
 import { getVoterProfile } from "../lib/voter-profile.js";
+import { fetchRingkasanBreakdown } from "../lib/ringkasan-breakdown.js";
+import { fetchVotersParty } from "../lib/ringkasan-voters-party.js";
 
 const ELECTION = "GE15";
 
@@ -54,6 +56,263 @@ function parseGeometry(raw: unknown, lng: number, lat: number): unknown {
     geometry = { type: "Point", coordinates: [lng, lat] };
   }
   return geometry;
+}
+
+type RingkasanScope = "NEGARA" | "NEGERI" | "PARLIMEN" | "DUN";
+
+type RingkasanRow = {
+  parliamentSeats: number;
+  dunSeats: number;
+  dmCount: number;
+  electorate: number;
+  ballots: number;
+  turnout: number;
+  unreturned: number;
+  rejected: number;
+  validVotes: number;
+  validPercent: number;
+  parties: number;
+  majority?: number;
+  majorityPercent?: number;
+  seatName?: string;
+  seatState?: string;
+};
+
+function parseRingkasanScope(
+  areaRaw: string | undefined,
+  valueRaw: string | undefined,
+  stateFallback: string,
+): { area: RingkasanScope; value: string } {
+  const area = (areaRaw || "").toUpperCase();
+  const value = (valueRaw || stateFallback || "").trim();
+  if (area === "NEGERI" && value) return { area: "NEGERI", value };
+  if (area === "PARLIMEN" && value) return { area: "PARLIMEN", value };
+  if (area === "DUN" && value) return { area: "DUN", value };
+  if (value && !areaRaw) return { area: "NEGERI", value };
+  return { area: "NEGARA", value: "" };
+}
+
+function eqWhere(column: string, value: string): { clause: string; params: string[] } {
+  return {
+    clause: ` WHERE LOWER(${column}) = ?`,
+    params: [value.toLowerCase()],
+  };
+}
+
+function mapRingkasanRow(r: RowDataPacket): RingkasanRow {
+  const electorate = Number(r.electorate ?? 0);
+  const ballots = Number(r.ballots ?? 0);
+  const validVotes = Number(r.validVotes ?? 0);
+  return {
+    parliamentSeats: Number(r.parliamentSeats ?? 0),
+    dunSeats: Number(r.dunSeats ?? 0),
+    dmCount: Number(r.dmCount ?? 0),
+    electorate,
+    ballots,
+    turnout: electorate > 0 ? Number(((ballots / electorate) * 100).toFixed(2)) : 0,
+    unreturned: Number(r.unreturned ?? 0),
+    rejected: Number(r.rejected ?? 0),
+    validVotes,
+    validPercent: ballots > 0 ? Number(((validVotes / ballots) * 100).toFixed(2)) : 0,
+    parties: Number(r.parties ?? 0),
+  };
+}
+
+/** Match legacy bdcat `get_ringkasan_details` — scope-driven aggregates. */
+async function fetchRingkasan(
+  pool: ReturnType<typeof getKnowledgePool>,
+  scope: { area: RingkasanScope; value: string },
+  votesTable: string,
+  presentation: Presentation,
+): Promise<RingkasanRow> {
+  const empty = { clause: "", params: [] as string[] };
+  let par = empty;
+  let dun = empty;
+  let dm = empty;
+  let voteSource = votesTable;
+  let voteScope = empty;
+  let useWilayahQuery = false;
+
+  if (scope.area === "NEGERI") {
+    par = eqWhere("parliament_statename", scope.value);
+    dun = eqWhere("dun_statename", scope.value);
+    dm = eqWhere("dm_state", scope.value);
+    voteSource = "electorals_dun";
+    voteScope = dun;
+    useWilayahQuery = scope.value.toLowerCase().includes("wilayah");
+  } else if (scope.area === "PARLIMEN") {
+    par = eqWhere("parliament_code", scope.value);
+    dun = eqWhere("parliament_code", scope.value);
+    dm = eqWhere("parliament_code", scope.value);
+    voteSource = "electorals_parliament";
+    voteScope = par;
+  } else if (scope.area === "DUN") {
+    par = eqWhere("parliament_code", scope.value);
+    dun = eqWhere("dun_mapcode", scope.value);
+    dm = eqWhere("map_code", scope.value);
+    voteSource = "electorals_dun";
+    voteScope = dun;
+  }
+
+  if (useWilayahQuery) {
+    voteSource = "electorals_parliament";
+    voteScope = par;
+  }
+
+  const params = [
+    ...par.params,
+    ...dun.params,
+    ...dm.params,
+    ...voteScope.params,
+    ...voteScope.params,
+    ...voteScope.params,
+    ...voteScope.params,
+    ...voteScope.params,
+    ...voteScope.params,
+  ];
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       (SELECT COUNT(*) FROM electorals_parliament${par.clause}) AS parliamentSeats,
+       (SELECT COUNT(*) FROM electorals_dun${dun.clause}) AS dunSeats,
+       (SELECT COUNT(*) FROM electorals_dm_main${dm.clause}) AS dmCount,
+       (SELECT COALESCE(SUM(total_electorate), 0) FROM \`${voteSource}\`${voteScope.clause}) AS electorate,
+       (SELECT COALESCE(SUM(total_ballots), 0) FROM \`${voteSource}\`${voteScope.clause}) AS ballots,
+       (SELECT COALESCE(SUM(total_unreturned), 0) FROM \`${voteSource}\`${voteScope.clause}) AS unreturned,
+       (SELECT COALESCE(SUM(total_rejected), 0) FROM \`${voteSource}\`${voteScope.clause}) AS rejected,
+       (SELECT COALESCE(SUM(total_valid), 0) FROM \`${voteSource}\`${voteScope.clause}) AS validVotes`,
+    params,
+  );
+
+  const ring = mapRingkasanRow(rows?.[0] || {});
+
+  if (scope.area === "PARLIMEN" || scope.area === "DUN") {
+    const seatTableName =
+      scope.area === "PARLIMEN" ? votesTable : seatTable("dun", presentation);
+    const codeColumn =
+      scope.area === "PARLIMEN" ? "parliament_code" : "dun_mapcode";
+    const nameColumn =
+      scope.area === "PARLIMEN" ? "parliament_name" : "dun_name";
+    const stateColumn =
+      scope.area === "PARLIMEN" ? "parliament_statename" : "dun_statename";
+
+    const [seatRows] = await pool.query<RowDataPacket[]>(
+      `SELECT
+         ${nameColumn} AS seatName,
+         ${stateColumn} AS seatState,
+         candidate_majority_won AS majority,
+         candidate_majority_percent AS majorityPercent
+       FROM \`${seatTableName}\`
+       WHERE LOWER(${codeColumn}) = ?
+       LIMIT 1`,
+      [scope.value.toLowerCase()],
+    );
+    const seat = seatRows?.[0];
+    if (seat) {
+      ring.seatName = String(seat.seatName || "");
+      ring.seatState = String(seat.seatState || "");
+      ring.majority = Number(seat.majority ?? 0);
+      ring.majorityPercent = Number(seat.majorityPercent ?? 0);
+    }
+  }
+
+  return ring;
+}
+
+function buildRingkasanAreaLabel(
+  scope: { area: RingkasanScope; value: string },
+  ring: RingkasanRow,
+): string {
+  if (scope.area === "NEGERI") {
+    return `SELURUH NEGERI ${scope.value.toUpperCase()}`;
+  }
+  if (scope.area === "PARLIMEN" && ring.seatName) {
+    return `PARLIMEN ${ring.seatName.toUpperCase()} (${scope.value.toUpperCase()})`;
+  }
+  if (scope.area === "DUN" && ring.seatName) {
+    return `DUN ${ring.seatName.toUpperCase()} (${scope.value.toUpperCase()})`;
+  }
+  if (scope.area === "PARLIMEN" || scope.area === "DUN") {
+    return `${scope.area} ${scope.value.toUpperCase()}`;
+  }
+  return "SELURUH NEGARA";
+}
+
+function ringkasanPartyWhere(
+  level: MapLevel,
+  scope: { area: RingkasanScope; value: string },
+): { clause: string; params: string[] } {
+  if (scope.area === "NEGERI") {
+    const col = level === "parliament" ? "parliament_statename" : "dun_statename";
+    return eqWhere(col, scope.value);
+  }
+  if (scope.area === "PARLIMEN") {
+    return eqWhere(
+      level === "parliament" ? "parliament_code" : "parliament_code",
+      scope.value,
+    );
+  }
+  if (scope.area === "DUN") {
+    return eqWhere("dun_mapcode", scope.value);
+  }
+  return { clause: "", params: [] };
+}
+
+function buildRingkasanStats(
+  ring: RingkasanRow,
+  level: MapLevel,
+  presentation: Presentation,
+  scope: { area: RingkasanScope; value: string },
+): Array<{ id: string; label: string; value: string | number; subValue?: string }> {
+  const seatLabel =
+    level === "dun"
+      ? presentation === "ops66"
+        ? "OPS66 DUN"
+        : "Jumlah DUN"
+      : presentation === "ops66"
+        ? "OPS66 Parlimen"
+        : "Jumlah Parlimen";
+
+  const seatValue = level === "dun" ? ring.dunSeats : ring.parliamentSeats;
+  const hasMajority =
+    (scope.area === "PARLIMEN" || scope.area === "DUN") &&
+    ring.majority != null &&
+    ring.majority > 0;
+
+  return [
+    { id: "parliament", label: seatLabel, value: seatValue },
+    {
+      id: "dun",
+      label: level === "dun" ? "Parlimen" : "Jumlah DUN",
+      value: level === "dun" ? ring.parliamentSeats : ring.dunSeats,
+    },
+    { id: "dm", label: "Jumlah DM", value: ring.dmCount },
+    { id: "electorate", label: "Pengundi Berdaftar", value: ring.electorate },
+    {
+      id: "ballots",
+      label: "Keluar Mengundi",
+      value: ring.ballots,
+      subValue: `${ring.turnout}%`,
+    },
+    { id: "turnout", label: "TOV", value: ring.turnout, subValue: "%" },
+    {
+      id: "majority",
+      label: "Majoriti",
+      value: hasMajority ? ring.majority! : "N/A",
+      subValue: hasMajority ? `${ring.majorityPercent}%` : undefined,
+    },
+    {
+      id: "valid",
+      label: "Undi Diterima",
+      value: ring.validVotes,
+      subValue: `${ring.validPercent}%`,
+    },
+    {
+      id: "spoilt",
+      label: "Undi Rosak / Hilang",
+      value: `${ring.rejected.toLocaleString("en-MY")} / ${ring.unreturned.toLocaleString("en-MY")}`,
+    },
+  ];
 }
 
 function featureProps(
@@ -144,52 +403,73 @@ function dunSelect(table: string, withGeometry: boolean): string {
   `;
 }
 
-exploreRoutes.get("/summary", async (c) => {
-  const state = c.req.query("state")?.trim() || "";
-  const level = parseLevel(c.req.query("level"));
-  const presentation = parsePresentation(c.req.query("presentation"));
+function ringkasanPartyQuery(
+  level: MapLevel,
+  presentation: Presentation,
+  scope: { area: RingkasanScope; value: string },
+): {
+  fromTable: string;
+  partyColumn: string;
+  colorColumn: string;
+  where: { clause: string; params: string[] };
+} {
+  if (scope.area === "DUN") {
+    const dunTable = seatTable("dun", presentation);
+    return {
+      fromTable: dunTable,
+      partyColumn: "dun_party",
+      colorColumn: "dun_color",
+      where: eqWhere("dun_mapcode", scope.value),
+    };
+  }
+
   const table = seatTable(level, presentation);
-  const pool = getKnowledgePool();
+  const partyColumn = level === "parliament" ? "parliament_party" : "dun_party";
+  const colorColumn = level === "parliament" ? "parliament_color" : "dun_color";
+  return {
+    fromTable: table,
+    partyColumn,
+    colorColumn,
+    where: ringkasanPartyWhere(level, scope),
+  };
+}
 
-  if (level === "parliament") {
-    const where = ["1=1"];
-    const params: string[] = [];
-    // Live parliament rows are GE15-scoped when column exists; ops66 may omit election filter
-    if (presentation === "normal") {
-      where.push("p.parliament_election = ?");
-      params.push(ELECTION);
-    }
-    if (state) {
-      where.push("UPPER(p.parliament_statename) = ?");
-      params.push(state.toUpperCase());
-    }
-    const clause = where.join(" AND ");
+exploreRoutes.get("/summary", async (c) => {
+  try {
+    const state = c.req.query("state")?.trim() || "";
+    const areaParam = c.req.query("area")?.trim() || "";
+    const valueParam = c.req.query("value")?.trim() || "";
+    const level = parseLevel(c.req.query("level"));
+    const presentation = parsePresentation(c.req.query("presentation"));
+    const table = seatTable(level, presentation);
+    const pool = getKnowledgePool();
+    const scope = parseRingkasanScope(areaParam, valueParam, state);
 
-    const [kpiRows] = await pool.query<RowDataPacket[]>(
-      `SELECT
-         COUNT(*) AS seats,
-         COALESCE(SUM(p.total_electorate), 0) AS electorate,
-         ROUND(AVG(NULLIF(p.total_turnout, 0)), 2) AS avgTurnout,
-         COUNT(DISTINCT p.parliament_party) AS parties
-       FROM \`${table}\` p
-       WHERE ${clause}`,
-      params,
-    );
-    const kpi = kpiRows[0] || {};
+    const ring = await fetchRingkasan(pool, scope, table, presentation);
 
+    const partyQuery = ringkasanPartyQuery(level, presentation, scope);
+    const partyFilter = partyQuery.where.clause
+      ? ` AND p.${partyQuery.partyColumn} IS NOT NULL AND p.${partyQuery.partyColumn} <> ''`
+      : ` WHERE p.${partyQuery.partyColumn} IS NOT NULL AND p.${partyQuery.partyColumn} <> ''`;
     const [partyRows] = await pool.query<RowDataPacket[]>(
       `SELECT
-         p.parliament_party AS party,
-         MAX(COALESCE(NULLIF(party.party_color, ''), p.parliament_color, '#5a6e82')) AS color,
+         p.${partyQuery.partyColumn} AS party,
+         MAX(COALESCE(NULLIF(party.party_color, ''), p.${partyQuery.colorColumn}, '#5a6e82')) AS color,
          COUNT(*) AS seats
-       FROM \`${table}\` p
-       LEFT JOIN electorals_party party ON p.parliament_party = party.party_name
-       WHERE ${clause}
-       GROUP BY p.parliament_party
+       FROM \`${partyQuery.fromTable}\` p
+       LEFT JOIN electorals_party party ON p.${partyQuery.partyColumn} = party.party_name
+       ${partyQuery.where.clause}${partyFilter}
+       GROUP BY p.${partyQuery.partyColumn}
        ORDER BY seats DESC
        LIMIT 12`,
-      params,
+      partyQuery.where.params,
     );
+
+    const areaLabel = buildRingkasanAreaLabel(scope, ring);
+    const [breakdown, votersParty] = await Promise.all([
+      fetchRingkasanBreakdown(pool, scope),
+      fetchVotersParty(pool, scope),
+    ]);
 
     return c.json({
       source: "stt_electorals",
@@ -197,114 +477,26 @@ exploreRoutes.get("/summary", async (c) => {
       election: ELECTION,
       level,
       presentation,
-      state: state || null,
-      kpis: [
-        {
-          id: "seats",
-          label: presentation === "ops66" ? "OPS66 seats" : "Parliament seats",
-          value: Number(kpi.seats ?? 0),
-          hint: state || (presentation === "ops66" ? "OPS66" : "GE15 national"),
-        },
-        {
-          id: "electorate",
-          label: "Electorate",
-          value: Number(kpi.electorate ?? 0),
-          hint: "Registered voters",
-        },
-        {
-          id: "turnout",
-          label: "Avg turnout",
-          value: Number(kpi.avgTurnout ?? 0),
-          hint: "%",
-        },
-        {
-          id: "parties",
-          label: "Parties",
-          value: Number(kpi.parties ?? 0),
-          hint: "With seats",
-        },
-      ],
+      state: scope.area === "NEGERI" ? scope.value : state || null,
+      area: scope.area,
+      areaValue: scope.value || null,
+      areaLabel,
+      stats: buildRingkasanStats(ring, level, presentation, scope),
       partySeats: (partyRows || []).map((r) => ({
         party: String(r.party || "Unknown"),
         color: String(r.color || "#5a6e82"),
         seats: Number(r.seats ?? 0),
       })),
+      breakdown,
+      votersParty,
     });
+  } catch (err) {
+    console.error("[explore/summary]", err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Summary query failed" },
+      500,
+    );
   }
-
-  const where = ["1=1"];
-  const params: string[] = [];
-  if (state) {
-    where.push("UPPER(p.dun_statename) = ?");
-    params.push(state.toUpperCase());
-  }
-  const clause = where.join(" AND ");
-
-  const [kpiRows] = await pool.query<RowDataPacket[]>(
-    `SELECT
-       COUNT(*) AS seats,
-       COALESCE(SUM(p.total_electorate), 0) AS electorate,
-       ROUND(AVG(NULLIF(p.total_turnout, 0)), 2) AS avgTurnout,
-       COUNT(DISTINCT p.dun_party) AS parties
-     FROM \`${table}\` p
-     WHERE ${clause}`,
-    params,
-  );
-  const kpi = kpiRows[0] || {};
-
-  const [partyRows] = await pool.query<RowDataPacket[]>(
-    `SELECT
-       p.dun_party AS party,
-       MAX(COALESCE(NULLIF(party.party_color, ''), p.dun_color, '#5a6e82')) AS color,
-       COUNT(*) AS seats
-     FROM \`${table}\` p
-     LEFT JOIN electorals_party party ON p.dun_party = party.party_name
-     WHERE ${clause}
-     GROUP BY p.dun_party
-     ORDER BY seats DESC
-     LIMIT 12`,
-    params,
-  );
-
-  return c.json({
-    source: "stt_electorals",
-    mode: "read-only",
-    election: ELECTION,
-    level,
-    presentation,
-    state: state || null,
-    kpis: [
-      {
-        id: "seats",
-        label: "DUN seats",
-        value: Number(kpi.seats ?? 0),
-        hint: state || (presentation === "ops66" ? "OPS66" : "National"),
-      },
-      {
-        id: "electorate",
-        label: "Electorate",
-        value: Number(kpi.electorate ?? 0),
-        hint: "Registered voters",
-      },
-      {
-        id: "turnout",
-        label: "Avg turnout",
-        value: Number(kpi.avgTurnout ?? 0),
-        hint: "%",
-      },
-      {
-        id: "parties",
-        label: "Parties",
-        value: Number(kpi.parties ?? 0),
-        hint: "With seats",
-      },
-    ],
-    partySeats: (partyRows || []).map((r) => ({
-      party: String(r.party || "Unknown"),
-      color: String(r.color || "#5a6e82"),
-      seats: Number(r.seats ?? 0),
-    })),
-  });
 });
 
 exploreRoutes.get("/states", async (c) => {

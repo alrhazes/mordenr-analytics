@@ -20,6 +20,19 @@ export type PartySeat = {
   seats: number;
 };
 
+export type GroupSeat = {
+  group: string;
+  color: string;
+  seats: number;
+};
+
+export type SeatOverview = {
+  totalSeats: number;
+  majorityRequired: number;
+  byCoalition: GroupSeat[];
+  byParty: GroupSeat[];
+};
+
 export type BreakdownChip = {
   name: string;
   label: string;
@@ -63,6 +76,7 @@ export type ExploreSummary = {
   areaLabel: string;
   stats: ExploreRingkasanStat[];
   partySeats: PartySeat[];
+  seatOverview: SeatOverview;
   breakdown: RingkasanBreakdown;
   votersParty: VotersPartyChip[];
 };

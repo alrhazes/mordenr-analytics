@@ -434,6 +434,34 @@ function ringkasanPartyQuery(
   };
 }
 
+function ringkasanGroupQuery(
+  level: MapLevel,
+  presentation: Presentation,
+  scope: { area: RingkasanScope; value: string },
+): {
+  fromTable: string;
+  groupColumn: string;
+  where: { clause: string; params: string[] };
+} {
+  if (scope.area === "DUN") {
+    const dunTable = seatTable("dun", presentation);
+    return {
+      fromTable: dunTable,
+      groupColumn: "dun_group",
+      where: eqWhere("dun_mapcode", scope.value),
+    };
+  }
+
+  const table = seatTable(level, presentation);
+  const groupColumn =
+    level === "parliament" ? "parliament_group" : "dun_group";
+  return {
+    fromTable: table,
+    groupColumn,
+    where: ringkasanPartyWhere(level, scope),
+  };
+}
+
 exploreRoutes.get("/summary", async (c) => {
   try {
     const state = c.req.query("state")?.trim() || "";
@@ -460,10 +488,48 @@ exploreRoutes.get("/summary", async (c) => {
        LEFT JOIN electorals_party party ON p.${partyQuery.partyColumn} = party.party_name
        ${partyQuery.where.clause}${partyFilter}
        GROUP BY p.${partyQuery.partyColumn}
-       ORDER BY seats DESC
-       LIMIT 12`,
+       ORDER BY seats DESC`,
       partyQuery.where.params,
     );
+
+    const groupQuery = ringkasanGroupQuery(level, presentation, scope);
+    const groupFilter = groupQuery.where.clause
+      ? ` AND p.${groupQuery.groupColumn} IS NOT NULL AND p.${groupQuery.groupColumn} <> ''`
+      : ` WHERE p.${groupQuery.groupColumn} IS NOT NULL AND p.${groupQuery.groupColumn} <> ''`;
+    const [groupRows] = await pool.query<RowDataPacket[]>(
+      `SELECT
+         p.${groupQuery.groupColumn} AS \`group\`,
+         MAX(COALESCE(NULLIF(grp.group_color, ''), '#5a6e82')) AS color,
+         COUNT(*) AS seats
+       FROM \`${groupQuery.fromTable}\` p
+       LEFT JOIN electorals_party grp ON p.${groupQuery.groupColumn} = grp.party_name
+       ${groupQuery.where.clause}${groupFilter}
+       GROUP BY p.${groupQuery.groupColumn}
+       ORDER BY seats DESC`,
+      groupQuery.where.params,
+    );
+
+    const partySeats = (partyRows || []).map((r) => ({
+      group: String(r.party || "Unknown"),
+      color: String(r.color || "#5a6e82"),
+      seats: Number(r.seats ?? 0),
+    }));
+
+    const groupSeats = (groupRows || []).map((r) => ({
+      group: String(r.group || "Unknown"),
+      color: String(r.color || "#5a6e82"),
+      seats: Number(r.seats ?? 0),
+    }));
+    const totalSeats = Math.max(
+      groupSeats.reduce((sum, g) => sum + g.seats, 0),
+      partySeats.reduce((sum, g) => sum + g.seats, 0),
+    );
+    const seatOverview = {
+      totalSeats,
+      majorityRequired: totalSeats > 0 ? Math.floor(totalSeats / 2) + 1 : 0,
+      byCoalition: groupSeats,
+      byParty: partySeats,
+    };
 
     const areaLabel = buildRingkasanAreaLabel(scope, ring);
     const [breakdown, votersParty] = await Promise.all([
@@ -482,11 +548,12 @@ exploreRoutes.get("/summary", async (c) => {
       areaValue: scope.value || null,
       areaLabel,
       stats: buildRingkasanStats(ring, level, presentation, scope),
-      partySeats: (partyRows || []).map((r) => ({
-        party: String(r.party || "Unknown"),
-        color: String(r.color || "#5a6e82"),
-        seats: Number(r.seats ?? 0),
+      partySeats: partySeats.map((r) => ({
+        party: r.group,
+        color: r.color,
+        seats: r.seats,
       })),
+      seatOverview,
       breakdown,
       votersParty,
     });

@@ -109,18 +109,13 @@ export function ElectionStatusSummary({
       </div>
 
       <div className="mt-5 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-            Seats by party
-          </h3>
-          <p className="text-xs text-[var(--color-ink-muted)]">{chartSubtitle}</p>
-        </div>
-        {isLoading && !data?.partySeats?.length ? (
-          <Skeleton className="mt-3 h-64 rounded-lg" />
+        {isLoading && !data?.seatOverview?.totalSeats ? (
+          <Skeleton className="h-64 rounded-lg" />
         ) : (
-          <div className="mt-2">
-            <PartySeatsChart data={data?.partySeats || []} />
-          </div>
+          <PartySeatsChart
+            data={data?.seatOverview}
+            subtitle={chartSubtitle}
+          />
         )}
       </div>
 

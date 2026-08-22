@@ -114,6 +114,7 @@ export function ElectionStatusSummary({
         ) : (
           <PartySeatsChart
             data={data?.seatOverview}
+            scopeArea={data?.area}
             subtitle={chartSubtitle}
           />
         )}

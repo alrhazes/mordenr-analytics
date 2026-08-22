@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GroupSeat, SeatOverview } from "@/queries/explore";
+import type { RingkasanArea } from "./lib/ringkasan-scope";
 import {
   contrastText,
   resolveSeatColors,
@@ -8,6 +9,7 @@ import {
 const VIEW_WIDTH = 520;
 const VIEW_HEIGHT = 260;
 const ROW_COUNT = 8;
+const FLAT_GRID_ROW_COUNT = 3;
 const DOT_RADIUS = 4.5;
 
 type ViewMode = "coalition" | "party";
@@ -28,46 +30,95 @@ function allocateSeatsToRows(total: number, rowCount: number): number[] {
   return counts;
 }
 
-/** Cumulative left→right share of the semicircle (same on every arc row). */
-function buildPartySegments(groups: GroupSeat[], total: number) {
-  const sorted = [...groups].sort((a, b) => b.seats - a.seats);
-  let cumulative = 0;
+type PartyRemaining = { color: string; remaining: number };
 
-  return sorted.map((group) => {
-    cumulative += group.seats / total;
-    return { end: cumulative, color: group.color };
-  });
-}
-
-function colorAtFraction(
-  t: number,
-  segments: Array<{ end: number; color: string }>,
-): string {
-  for (const segment of segments) {
-    if (t <= segment.end) return segment.color;
-  }
-  return segments[segments.length - 1]?.color || "#94a3b8";
+function initPartyQueue(groups: GroupSeat[]): PartyRemaining[] {
+  return [...groups]
+    .sort((a, b) => b.seats - a.seats)
+    .map((g) => ({ color: g.color, remaining: g.seats }));
 }
 
 /**
- * Each arc row is filled left → right (bottom/back row first) using the same
- * proportional party slices, so blocks align horizontally across rows.
+ * Split one row left → right by remaining share (largest remainder).
+ * Preserves exact global seat totals when called row-by-row.
  */
+function allocateRowColorsLeftToRight(
+  parties: PartyRemaining[],
+  rowCapacity: number,
+): string[] {
+  const totalRemaining = parties.reduce((sum, p) => sum + p.remaining, 0);
+  if (rowCapacity <= 0 || totalRemaining <= 0) return [];
+
+  const active = parties.filter((p) => p.remaining > 0);
+  const shares = active.map((party) => {
+    const exact = (rowCapacity * party.remaining) / totalRemaining;
+    const base = Math.floor(exact);
+    return { party, base, fraction: exact - base };
+  });
+
+  let used = shares.reduce((sum, s) => sum + s.base, 0);
+  let slotsLeft = rowCapacity - used;
+  shares.sort((a, b) => b.fraction - a.fraction);
+  for (let i = 0; i < slotsLeft; i++) {
+    shares[i].base += 1;
+  }
+
+  const countByParty = new Map<PartyRemaining, number>();
+  for (const share of shares) {
+    countByParty.set(share.party, share.base);
+  }
+
+  const rowColors: string[] = [];
+  for (const party of parties) {
+    const count = countByParty.get(party) ?? 0;
+    for (let i = 0; i < count; i++) {
+      rowColors.push(party.color);
+    }
+    party.remaining -= count;
+  }
+
+  return rowColors;
+}
+
+/** Row-by-row left → right; each row mirrors nationwide proportional bands. */
+function buildRowMajorSeatColors(
+  groups: GroupSeat[],
+  rowCapacities: number[],
+): string[] {
+  const total = groups.reduce((sum, g) => sum + g.seats, 0);
+  if (total === 0) return [];
+
+  const parties = initPartyQueue(groups);
+  const colors: string[] = [];
+
+  for (const rowCapacity of rowCapacities) {
+    if (rowCapacity <= 0) continue;
+    colors.push(...allocateRowColorsLeftToRight(parties, rowCapacity));
+  }
+
+  return colors;
+}
+
 function buildGroupedSemicircleLayout(groups: GroupSeat[]) {
   const total = groups.reduce((sum, g) => sum + g.seats, 0);
   if (total === 0) return [];
 
-  const segments = buildPartySegments(groups, total);
+  const rowCounts = allocateSeatsToRows(total, ROW_COUNT);
+  const rowCapacities: number[] = [];
+  for (let row = ROW_COUNT - 1; row >= 0; row--) {
+    if (rowCounts[row] > 0) rowCapacities.push(rowCounts[row]);
+  }
+
+  const colors = buildRowMajorSeatColors(groups, rowCapacities);
 
   const cx = VIEW_WIDTH / 2;
   const cy = VIEW_HEIGHT - 18;
   const innerR = 42;
   const outerR = Math.min(VIEW_WIDTH / 2 - DOT_RADIUS - 6, VIEW_HEIGHT - 72);
   const rowStep = (outerR - innerR) / Math.max(ROW_COUNT - 1, 1);
-  const rowCounts = allocateSeatsToRows(total, ROW_COUNT);
   const layout: Array<{ x: number; y: number; color: string }> = [];
 
-  // Bottom/back arc first, then each row left → right from angle π (left) to 0 (right).
+  let colorIdx = 0;
   for (let row = ROW_COUNT - 1; row >= 0; row--) {
     const count = rowCounts[row];
     if (count <= 0) continue;
@@ -79,12 +130,121 @@ function buildGroupedSemicircleLayout(groups: GroupSeat[]) {
       layout.push({
         x: cx + radius * Math.cos(angle),
         y: cy - radius * Math.sin(angle),
-        color: colorAtFraction(t, segments),
+        color: colors[colorIdx++] || "#94a3b8",
       });
     }
   }
 
   return layout;
+}
+
+/** State/seat scope: exactly 3 rows, largest group first, left → right. */
+function splitSeatsIntoThreeRows(total: number): number[] {
+  const counts = [0, 0, 0];
+  if (total <= 0) return counts;
+
+  const perRow = Math.ceil(total / FLAT_GRID_ROW_COUNT);
+  let left = total;
+  for (let i = 0; i < FLAT_GRID_ROW_COUNT && left > 0; i++) {
+    counts[i] = Math.min(perRow, left);
+    left -= counts[i];
+  }
+  return counts;
+}
+
+/** Each of the 3 rows: largest group on the left, smaller groups on the right. */
+function buildFlatThreeRowGrid(groups: GroupSeat[]): string[][] {
+  const total = groups.reduce((sum, g) => sum + g.seats, 0);
+  const rowSizes = splitSeatsIntoThreeRows(total);
+  const parties = initPartyQueue(groups);
+
+  return rowSizes.map((size) =>
+    size > 0 ? allocateRowColorsLeftToRight(parties, size) : [],
+  );
+}
+
+function SeatStats({ overview }: { overview: SeatOverview }) {
+  return (
+    <div className="mt-1 text-center">
+      <div className="text-3xl font-semibold tabular-nums text-[var(--color-ink)]">
+        {overview.totalSeats}
+      </div>
+      <p className="text-xs text-[var(--color-ink-muted)]">
+        {overview.majorityRequired} required for majority
+      </p>
+    </div>
+  );
+}
+
+function SeatLegend({ groups }: { groups: GroupSeat[] }) {
+  const legendGroups = sortGroupsForLegend(groups);
+
+  return (
+    <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-3">
+      {legendGroups.map((group) => (
+        <div
+          key={group.group}
+          className="flex min-w-[3.5rem] flex-col items-center gap-1"
+        >
+          <div
+            className="flex h-10 min-w-[3rem] items-center justify-center rounded px-2 text-sm font-bold tabular-nums"
+            style={{
+              backgroundColor: group.color,
+              color: contrastText(group.color),
+            }}
+          >
+            {group.seats}
+          </div>
+          <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-ink-muted)]">
+            {group.group}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FlatSeatGrid({
+  overview,
+  groups,
+  mode,
+}: {
+  overview: SeatOverview;
+  groups: GroupSeat[];
+  mode: ViewMode;
+}) {
+  const rows = buildFlatThreeRowGrid(groups);
+  const maxRowLen = Math.max(...rows.map((row) => row.length), 1);
+  const rowWidthRem = maxRowLen * 1.375;
+
+  return (
+    <div className="mx-auto w-full max-w-2xl">
+      <div
+        className="mx-auto flex flex-col items-center gap-2"
+        role="img"
+        aria-label={`${overview.totalSeats} seats by ${mode}`}
+      >
+        {rows.map((row, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="flex justify-start gap-2"
+            style={{ width: `${rowWidthRem}rem` }}
+          >
+            {row.map((color, colIndex) => (
+              <span
+                key={`${rowIndex}-${colIndex}`}
+                className="block h-3.5 w-3.5 shrink-0 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <SeatStats overview={overview} />
+      <SeatLegend groups={groups} />
+    </div>
+  );
 }
 
 function sortGroupsForLegend(groups: GroupSeat[]): GroupSeat[] {
@@ -160,7 +320,6 @@ function Hemicycle({
   mode: ViewMode;
 }) {
   const dots = buildGroupedSemicircleLayout(groups);
-  const legendGroups = sortGroupsForLegend(groups);
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -179,59 +338,27 @@ function Hemicycle({
             fill={dot.color}
           />
         ))}
-
-        <text
-          x={VIEW_WIDTH / 2}
-          y={VIEW_HEIGHT - 96}
-          textAnchor="middle"
-          fill="var(--color-ink, #0b1f33)"
-          style={{ fontSize: 28, fontWeight: 600 }}
-        >
-          {overview.totalSeats}
-        </text>
-        <text
-          x={VIEW_WIDTH / 2}
-          y={VIEW_HEIGHT - 74}
-          textAnchor="middle"
-          fill="#5a6e82"
-          style={{ fontSize: 12 }}
-        >
-          {overview.majorityRequired} required for majority
-        </text>
       </svg>
 
-      <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-3">
-        {legendGroups.map((group) => (
-          <div
-            key={group.group}
-            className="flex min-w-[3.5rem] flex-col items-center gap-1"
-          >
-            <div
-              className="flex h-10 min-w-[3rem] items-center justify-center rounded px-2 text-sm font-bold tabular-nums"
-              style={{
-                backgroundColor: group.color,
-                color: contrastText(group.color),
-              }}
-            >
-              {group.seats}
-            </div>
-            <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-ink-muted)]">
-              {group.group}
-            </span>
-          </div>
-        ))}
-      </div>
+      <SeatStats overview={overview} />
+      <SeatLegend groups={groups} />
     </div>
   );
 }
 
 type PartySeatsChartProps = {
   data?: SeatOverview;
+  scopeArea?: RingkasanArea | string;
   subtitle?: string;
 };
 
-export function PartySeatsChart({ data, subtitle }: PartySeatsChartProps) {
+export function PartySeatsChart({
+  data,
+  scopeArea = "NEGARA",
+  subtitle,
+}: PartySeatsChartProps) {
   const [mode, setMode] = useState<ViewMode>("coalition");
+  const useHemicycle = scopeArea === "NEGARA";
 
   if (!data || data.totalSeats === 0) {
     return (
@@ -270,7 +397,11 @@ export function PartySeatsChart({ data, subtitle }: PartySeatsChartProps) {
         ) : null}
       </div>
 
-      <Hemicycle overview={data} groups={groups} mode={mode} />
+      {useHemicycle ? (
+        <Hemicycle overview={data} groups={groups} mode={mode} />
+      ) : (
+        <FlatSeatGrid overview={data} groups={groups} mode={mode} />
+      )}
     </>
   );
 }

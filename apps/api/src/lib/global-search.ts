@@ -1,7 +1,11 @@
 import type { RowDataPacket } from "mysql2";
 import { getKnowledgePool } from "../db/knowledge.js";
 import { getSystemPool } from "../db/system-mysql.js";
-import { buildBooleanNameQuery } from "./boolean-search.js";
+import {
+  buildBooleanNameQuery,
+  buildLikeNameTokens,
+  shouldUseLikeNameSearch,
+} from "./boolean-search.js";
 import { seatMediaPaths, voterPhotoPaths } from "./electoral-media.js";
 
 const DEFAULT_TOTAL_RECORDS = 21_000_000;
@@ -198,6 +202,74 @@ async function searchDashGlobalSearch(
   return (rows || []).map(mapDashRow);
 }
 
+function mapVoterRow(r: RowDataPacket): GlobalSearchSuggestion {
+  return withVoterPhoto({
+    value: String(r.nama || r.ic),
+    label: "PENGUNDI",
+    id: String(r.ic || ""),
+    type: "voters",
+    totalRecords: 0,
+    icon: "fa fa-user",
+    extras: {
+      parliamentCode: r.parliament_code,
+      mapCode: r.map_code,
+    },
+    ic: String(r.ic || ""),
+  });
+}
+
+async function searchVotersByName(
+  pool: ReturnType<typeof getKnowledgePool>,
+  q: string,
+  limit: number,
+): Promise<GlobalSearchSuggestion[]> {
+  if (limit <= 0) return [];
+
+  const likeTokens = buildLikeNameTokens(q);
+  if (!likeTokens.length) return [];
+
+  if (shouldUseLikeNameSearch(q)) {
+    return searchVotersByLikeTokens(pool, likeTokens, limit);
+  }
+
+  const boolean = buildBooleanNameQuery(q);
+  if (boolean) {
+    try {
+      const [voterRows] = await pool.query<RowDataPacket[]>(
+        `SELECT nama, ic, parlimen, parliament_code, map_code
+         FROM electorals_register
+         WHERE MATCH(nama) AGAINST (? IN BOOLEAN MODE)
+         LIMIT ?`,
+        [boolean, limit],
+      );
+      if (voterRows?.length) {
+        return voterRows.map(mapVoterRow);
+      }
+    } catch {
+      /* electorals_register FULLTEXT may be unavailable */
+    }
+  }
+
+  return searchVotersByLikeTokens(pool, likeTokens, limit);
+}
+
+async function searchVotersByLikeTokens(
+  pool: ReturnType<typeof getKnowledgePool>,
+  likeTokens: string[],
+  limit: number,
+): Promise<GlobalSearchSuggestion[]> {
+  const where = likeTokens.map(() => "LOWER(nama) LIKE ?").join(" AND ");
+  const params = [...likeTokens.map((token) => `%${token}%`), limit];
+  const [likeRows] = await pool.query<RowDataPacket[]>(
+    `SELECT nama, ic, parlimen, parliament_code, map_code
+     FROM electorals_register
+     WHERE ${where}
+     LIMIT ?`,
+    params,
+  );
+  return (likeRows || []).map(mapVoterRow);
+}
+
 async function searchElectoralFallback(
   q: string,
   limit: number,
@@ -237,21 +309,7 @@ async function searchElectoralFallback(
         [...ics, limit],
       );
       for (const r of rows || []) {
-        suggestions.push(
-          withVoterPhoto({
-            value: String(r.nama || r.ic),
-            label: "PENGUNDI",
-            id: String(r.ic || ""),
-            type: "voters",
-            totalRecords: 0,
-            icon: "fa fa-user",
-            extras: {
-              parliamentCode: r.parliament_code,
-              mapCode: r.map_code,
-            },
-            ic: String(r.ic || ""),
-          }),
-        );
+        suggestions.push(mapVoterRow(r));
       }
     }
     return suggestions;
@@ -361,36 +419,13 @@ async function searchElectoralFallback(
     });
   }
 
-  const boolean = buildBooleanNameQuery(q);
-  if (boolean && suggestions.length < limit) {
-    try {
-      const [voterRows] = await pool.query<RowDataPacket[]>(
-        `SELECT nama, ic, parlimen, parliament_code, map_code
-         FROM electorals_register
-         WHERE MATCH(nama) AGAINST (? IN BOOLEAN MODE)
-         LIMIT ?`,
-        [boolean, limit - suggestions.length],
-      );
-      for (const r of voterRows || []) {
-        suggestions.push(
-          withVoterPhoto({
-            value: String(r.nama || r.ic),
-            label: "PENGUNDI",
-            id: String(r.ic || ""),
-            type: "voters",
-            totalRecords: 0,
-            icon: "fa fa-user",
-            extras: {
-              parliamentCode: r.parliament_code,
-              mapCode: r.map_code,
-            },
-            ic: String(r.ic || ""),
-          }),
-        );
-      }
-    } catch {
-      /* electorals_register FULLTEXT may be unavailable */
-    }
+  if (suggestions.length < limit) {
+    const voterMatches = await searchVotersByName(
+      pool,
+      q,
+      limit - suggestions.length,
+    );
+    suggestions.push(...voterMatches);
   }
 
   return suggestions.slice(0, limit);

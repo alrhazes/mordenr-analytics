@@ -1,0 +1,31 @@
+{
+  "name": "@bdcat/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "start": "node --env-file=../../.env dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "db:migrate": "prisma db push",
+    "db:migrate:dev": "prisma db push",
+    "db:seed": "tsx --env-file=../../.env prisma/seed.ts",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.4",
+    "@prisma/client": "^6.12.0",
+    "bcryptjs": "^3.0.2",
+    "hono": "^4.8.5",
+    "jose": "^6.0.12",
+    "mysql2": "^3.14.2",
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.13.3",
+    "prisma": "^6.12.0",
+    "tsx": "^4.20.3",
+    "typescript": "~5.8.3"
+  }
+}

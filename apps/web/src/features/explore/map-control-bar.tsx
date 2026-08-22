@@ -1,15 +1,11 @@
-import { List, Database, RotateCcw, Check } from "lucide-react";
+import { List, Database, RotateCcw, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 import { hasActiveMapFilters } from "./lib/map-filters";
 import { SeatSearch } from "./seat-search";
 import { MapFiltersPanel } from "./map-filters";
 
-function PillGroup({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function PillGroup({ children }: { children: React.ReactNode }) {
   return (
     <div className="inline-flex flex-wrap gap-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] p-1">
       {children}
@@ -75,9 +71,12 @@ export function MapControlBar() {
 
   return (
     <div className="space-y-4 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <SeatSearch />
-        <div className="flex flex-wrap items-center gap-3 pt-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-ink)]">
+          <Search className="h-4 w-4 text-[var(--color-ink-muted)]" />
+          Carian Negeri, Parlimen, Dun, MP, ADUN
+        </h4>
+        <div className="flex flex-wrap items-center gap-3">
           <PillGroup>
             <Pill
               active={presentation === "normal" && mapLevel === "parliament"}
@@ -115,15 +114,13 @@ export function MapControlBar() {
         </div>
       </div>
 
+      <SeatSearch embedded />
+
       <MapFiltersPanel />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSenaraiOpen(true)}
-          >
+          <Button size="sm" variant="outline" onClick={() => setSenaraiOpen(true)}>
             <List className="h-3.5 w-3.5" />
             {mapLevel === "parliament" ? "Senarai Parlimen" : "Senarai Dun"}
           </Button>

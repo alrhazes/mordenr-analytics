@@ -6,12 +6,11 @@ import {
   Compass,
   LogOut,
   PanelLeft,
-  Search,
   Settings2,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CommandPalette } from "@/components/command-palette";
+import { BdcatAppHeader } from "@/components/bdcat-app-header";
 import { useLogout, useMe } from "@/queries/auth";
 import { useUiShellStore } from "@/stores/ui-shell";
 import { cn } from "@/lib/utils";
@@ -30,22 +29,10 @@ export function AppShell() {
   const logout = useLogout();
   const sidebarCollapsed = useUiShellStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiShellStore((s) => s.toggleSidebar);
-  const setCommandOpen = useUiShellStore((s) => s.setCommandOpen);
 
   useEffect(() => {
     if (!isLoading && !user) navigate("/login", { replace: true });
   }, [isLoading, user, navigate]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setCommandOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [setCommandOpen]);
 
   if (isLoading || !user) {
     return (
@@ -121,22 +108,13 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-surface)]/90 px-4 backdrop-blur">
-          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-            <PanelLeft className="h-4 w-4" />
-          </Button>
-          <button
-            type="button"
-            onClick={() => setCommandOpen(true)}
-            className="flex h-9 max-w-md flex-1 items-center gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-3 text-left text-sm text-[var(--color-ink-muted)] transition hover:border-[var(--color-accent)]"
-          >
-            <Search className="h-4 w-4" />
-            <span>Search seats, parties, views…</span>
-            <kbd className="ml-auto rounded border border-[var(--color-line)] bg-white px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-ink-muted)]">
-              ⌘K
-            </kbd>
-          </button>
-        </header>
+        <BdcatAppHeader
+          sidebarToggle={
+            <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+          }
+        />
 
         <motion.main
           key={location.pathname}
@@ -151,8 +129,6 @@ export function AppShell() {
           <Outlet />
         </motion.main>
       </div>
-
-      <CommandPalette />
     </div>
   );
 }

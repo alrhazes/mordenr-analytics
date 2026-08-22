@@ -6,7 +6,7 @@ import type { SearchOption } from "@/queries/explore";
 import { PartyLogoPair } from "@/features/explore/party-logo-pair";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 
-export function SeatSearch() {
+export function SeatSearch({ embedded = false }: { embedded?: boolean }) {
   const presentation = useExploreWorkspaceStore((s) => s.presentation);
   const searchSelection = useExploreWorkspaceStore((s) => s.searchSelection);
   const setSearchSelection = useExploreWorkspaceStore((s) => s.setSearchSelection);
@@ -23,11 +23,13 @@ export function SeatSearch() {
   }, [open]);
 
   return (
-    <div className="relative min-w-[220px] flex-1">
-      <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-[var(--color-ink)]">
-        <Search className="h-4 w-4 text-[var(--color-ink-muted)]" />
-        Carian Negeri, Parlimen, Dun, MP, ADUN
-      </label>
+    <div className={`relative ${embedded ? "w-full" : "min-w-[220px] flex-1"}`}>
+      {!embedded && (
+        <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-[var(--color-ink)]">
+          <Search className="h-4 w-4 text-[var(--color-ink-muted)]" />
+          Carian Negeri, Parlimen, Dun, MP, ADUN
+        </label>
+      )}
       <div className="flex gap-2">
         <button
           type="button"

@@ -61,4 +61,8 @@ export const queryKeys = {
   profile: {
     me: ["profile", "me"] as const,
   },
+  globalSearch: {
+    meta: ["global-search", "meta"] as const,
+    search: (q: string) => ["global-search", q] as const,
+  },
 };

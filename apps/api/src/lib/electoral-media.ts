@@ -115,6 +115,27 @@ export function governmentLogoPath(government: string): string {
     : "logo/bukan_kerajaan.png";
 }
 
+const VOTER_PHOTO_CDN =
+  process.env.VOTER_PHOTO_CDN?.replace(/\/+$/, "") ||
+  "https://photo.mantooman.com";
+
+export function voterPhotoPaths(ic: unknown) {
+  const clean = String(ic ?? "").trim();
+  if (!clean) {
+    return {
+      photo: undefined as string | undefined,
+      photoLocal: undefined as string | undefined,
+      photoFallback: "voters/default.png",
+    };
+  }
+
+  return {
+    photo: `${VOTER_PHOTO_CDN}/${clean}.jpg`,
+    photoLocal: `voters/${clean}.jpg`,
+    photoFallback: "voters/default.png",
+  };
+}
+
 export function dominantRace(props: {
   malay?: number;
   chinese?: number;

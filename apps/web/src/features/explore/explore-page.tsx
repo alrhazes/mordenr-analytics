@@ -7,11 +7,9 @@ import {
 import { useSavedView } from "@/queries/library";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { ExploreMap } from "./explore-map";
 import { PartySeatsChart } from "./party-seats-chart";
 import { ConstituencySheet } from "./constituency-sheet";
-import { SaveViewDialog } from "./save-view-dialog";
 import { MapControlBar } from "./map-control-bar";
 import { SeatListDialog } from "./seat-list-dialog";
 import { DataInventoryDialog } from "./data-inventory-dialog";
@@ -37,20 +35,16 @@ export function ExplorePage() {
   const mapLevel = useExploreWorkspaceStore((s) => s.mapLevel);
   const presentation = useExploreWorkspaceStore((s) => s.presentation);
   const colorMode = useExploreWorkspaceStore((s) => s.colorMode);
-  const mapMode = useExploreWorkspaceStore((s) => s.mapMode);
-  const setMapMode = useExploreWorkspaceStore((s) => s.setMapMode);
-  const compareIds = useExploreWorkspaceStore((s) => s.compareIds);
-  const clearCompare = useExploreWorkspaceStore((s) => s.clearCompare);
+  const applyViewConfig = useExploreWorkspaceStore((s) => s.applyViewConfig);
+  const setFilterField = useExploreWorkspaceStore((s) => s.setFilterField);
+  const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
+  const setColorMode = useExploreWorkspaceStore((s) => s.setColorMode);
   const setSelectedConstituencyId = useExploreWorkspaceStore(
     (s) => s.setSelectedConstituencyId,
   );
   const setSelectedElectoralType = useExploreWorkspaceStore(
     (s) => s.setSelectedElectoralType,
   );
-  const applyViewConfig = useExploreWorkspaceStore((s) => s.applyViewConfig);
-  const setFilterField = useExploreWorkspaceStore((s) => s.setFilterField);
-  const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
-  const setColorMode = useExploreWorkspaceStore((s) => s.setColorMode);
   const searchSelection = useExploreWorkspaceStore((s) => s.searchSelection);
 
   const savedView = useSavedView(viewId);
@@ -190,46 +184,7 @@ export function ExplorePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-[family-name:var(--font-display)] text-2xl text-[var(--color-ink)]">
-            Explore
-          </h1>
-          <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
-            Peta pilihan raya
-            {savedView.data ? (
-              <>
-                {" "}
-                · <strong>{savedView.data.name}</strong>
-              </>
-            ) : null}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <SaveViewDialog />
-          {(["select", "pan", "compare"] as const).map((mode) => (
-            <Button
-              key={mode}
-              size="sm"
-              variant={mapMode === mode ? "default" : "outline"}
-              onClick={() => setMapMode(mode)}
-            >
-              {mode}
-            </Button>
-          ))}
-        </div>
-      </div>
-
       <MapControlBar />
-
-      {compareIds.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-[var(--color-ink-muted)]">
-          Comparing {compareIds.join(", ")}
-          <Button size="sm" variant="outline" onClick={clearCompare}>
-            Clear compare
-          </Button>
-        </div>
-      )}
 
       <ExploreMap
         data={filteredGeo}

@@ -142,28 +142,28 @@ export function SeatListDialog() {
             exit={{ opacity: 0, y: 12 }}
             className="fixed inset-x-3 top-[4vh] z-50 mx-auto flex max-h-[92vh] w-[min(98vw,1280px)] flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-white shadow-2xl"
           >
-            <div className="border-b border-[var(--color-line)] bg-[#1f3a57] px-5 py-3 text-white">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 id="senarai-title" className="text-lg font-semibold uppercase">
-                    {title} {scopeLabel}
-                  </h2>
-                  <p className="text-xs text-white/75">
-                    {list.data
-                      ? `${filteredRows.length} rekod`
-                      : "Memuatkan…"}
-                    {presentation === "ops66" ? " · OPS 66" : ""}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/10 hover:text-white"
-                  onClick={() => setOpen(false)}
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--color-line)] px-5 py-3">
+              <div>
+                <h2
+                  id="senarai-title"
+                  className="text-lg font-semibold text-[var(--color-ink)]"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
+                  {title} {scopeLabel}
+                </h2>
+                <p className="text-xs text-[var(--color-ink-muted)]">
+                  {list.data
+                    ? `${filteredRows.length} rekod`
+                    : "Memuatkan…"}
+                  {presentation === "ops66" ? " · OPS 66" : ""}
+                </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-bg)] px-4 py-3">

@@ -5,8 +5,6 @@ export const queryKeys = {
   health: ["health"] as const,
   explore: {
     summary: ["explore", "summary"] as const,
-    summaryByState: (state: string) =>
-      ["explore", "summary", state || "all"] as const,
     summaryKey: (opts: {
       state: string;
       area: string;
@@ -52,6 +50,12 @@ export const queryKeys = {
     dun: (code: string, presentation: string) =>
       ["explore", "dun", presentation, code] as const,
     voter: (ic: string) => ["explore", "voter", ic] as const,
+    demographySummary: (opts: { area: string; value: string }) =>
+      ["explore", "demography", "summary", opts.area, opts.value || "all"] as const,
+    demographyTable: (opts: { parent: string; view: string }) =>
+      ["explore", "demography", "table", opts.parent, opts.view || "all"] as const,
+    voterList: (opts: Record<string, string | number | undefined>) =>
+      ["explore", "voters", opts] as const,
     kpis: (filters: Record<string, string>) =>
       ["explore", "kpis", filters] as const,
   },

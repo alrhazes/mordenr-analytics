@@ -8,6 +8,7 @@ import { useSavedView } from "@/queries/library";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 import { ExploreMap } from "./explore-map";
 import { ElectionStatusSummary } from "./election-status-summary";
+import { DemographySection } from "./demography-section";
 import { ConstituencySheet } from "./constituency-sheet";
 import { VoterSheet } from "./voter-sheet";
 import { MapControlBar } from "./map-control-bar";
@@ -174,6 +175,17 @@ export function ExplorePage() {
     );
   }
 
+  function openVoterProfile(ic: string) {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("voter", ic);
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   // Match bdcat generateRingkasanPrediction: seat > state filter > negara
   const ringkasanScope = useMemo(
     () =>
@@ -248,6 +260,11 @@ export function ExplorePage() {
         error={summary.error as Error | null}
         mapLevel={mapLevel}
         presentation={presentation}
+      />
+
+      <DemographySection
+        ringkasanScope={ringkasanScope}
+        onOpenVoter={openVoterProfile}
       />
 
       {geo.isError && (

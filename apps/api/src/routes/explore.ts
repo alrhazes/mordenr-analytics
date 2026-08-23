@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import type { RowDataPacket } from "mysql2";
+import { z } from "zod";
 import { getKnowledgePool } from "../db/knowledge.js";
 import {
   seatDetailMedia,
@@ -10,6 +11,12 @@ import {
 import { getVoterProfile } from "../lib/voter-profile.js";
 import { fetchRingkasanBreakdown } from "../lib/ringkasan-breakdown.js";
 import { fetchVotersParty } from "../lib/ringkasan-voters-party.js";
+import {
+  fetchDemographySummary,
+  fetchDemographyTable,
+} from "../lib/demography.js";
+import type { DemographyArea } from "../lib/demography-scope.js";
+import { fetchVoterList, fetchVoterListExport } from "../lib/voter-list-filters.js";
 
 const ELECTION = "GE15";
 
@@ -1351,6 +1358,138 @@ exploreRoutes.get("/duns/:code", async (c) => {
       hidePartyLogo: media.hidePartyLogo,
     },
   });
+});
+
+const demographyAreaSchema = z.enum([
+  "NEGARA",
+  "NEGERI",
+  "PARLIMEN",
+  "DUN",
+  "DM",
+]);
+
+function parseDemographyScope(
+  areaRaw: string | undefined,
+  valueRaw: string | undefined,
+): { area: DemographyArea; value: string } {
+  const parsed = demographyAreaSchema.safeParse(
+    (areaRaw || "NEGARA").toUpperCase(),
+  );
+  const area = parsed.success ? parsed.data : "NEGARA";
+  return { area, value: (valueRaw || "").trim() };
+}
+
+exploreRoutes.get("/demography/summary", async (c) => {
+  try {
+    const scope = parseDemographyScope(
+      c.req.query("area"),
+      c.req.query("value"),
+    );
+    const pool = getKnowledgePool();
+    const summary = await fetchDemographySummary(pool, scope);
+    return c.json(summary);
+  } catch (err) {
+    console.error("[explore/demography/summary]", err);
+    return c.json(
+      {
+        error: err instanceof Error ? err.message : "Demography summary failed",
+      },
+      500,
+    );
+  }
+});
+
+exploreRoutes.get("/demography/table", async (c) => {
+  try {
+    const parent = parseDemographyScope(
+      c.req.query("parent"),
+      c.req.query("view"),
+    );
+    const pool = getKnowledgePool();
+    const table = await fetchDemographyTable(pool, parent.area, parent.value);
+    return c.json(table);
+  } catch (err) {
+    console.error("[explore/demography/table]", err);
+    return c.json(
+      {
+        error: err instanceof Error ? err.message : "Demography table failed",
+      },
+      500,
+    );
+  }
+});
+
+const voterListQuerySchema = z.object({
+  areaType: z.enum(["NEGARA", "NEGERI", "PARLIMEN", "DUN", "DM", "LOKALITI"]),
+  areaCode: z.string().optional(),
+  areaName: z.string().optional(),
+  filterKind: z
+    .enum(["race", "age", "gender", "party", "sikap"])
+    .optional(),
+  filterKey: z.string().optional(),
+  q: z.string().optional(),
+  jantina: z.string().optional(),
+  bangsa: z.string().optional(),
+  negeri: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+function parseVoterListQuery(c: { req: { query: (key: string) => string | undefined } }) {
+  return voterListQuerySchema.safeParse({
+    areaType: c.req.query("areaType")?.toUpperCase() || "NEGARA",
+    areaCode: c.req.query("areaCode") || undefined,
+    areaName: c.req.query("areaName") || undefined,
+    filterKind: c.req.query("filterKind") || undefined,
+    filterKey: c.req.query("filterKey") || undefined,
+    q: c.req.query("q") || undefined,
+    jantina: c.req.query("jantina") || undefined,
+    bangsa: c.req.query("bangsa") || undefined,
+    negeri: c.req.query("negeri") || undefined,
+    limit: c.req.query("limit") || "25",
+    offset: c.req.query("offset") || "0",
+  });
+}
+
+exploreRoutes.get("/voters", async (c) => {
+  try {
+    const parsed = parseVoterListQuery(c);
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const pool = getKnowledgePool();
+    const result = await fetchVoterList(pool, parsed.data);
+    return c.json(result);
+  } catch (err) {
+    console.error("[explore/voters]", err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Voter list failed" },
+      500,
+    );
+  }
+});
+
+exploreRoutes.get("/voters/export", async (c) => {
+  try {
+    const parsed = parseVoterListQuery(c);
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const { limit: _limit, offset: _offset, ...exportQuery } = parsed.data;
+    const pool = getKnowledgePool();
+    const result = await fetchVoterListExport(pool, exportQuery);
+    return c.json(result);
+  } catch (err) {
+    console.error("[explore/voters/export]", err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Voter export failed" },
+      500,
+    );
+  }
 });
 
 exploreRoutes.get("/voters/:ic", async (c) => {

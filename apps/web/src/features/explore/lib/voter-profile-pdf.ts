@@ -15,7 +15,9 @@ export function printVoterProfilePdf(root: HTMLElement, title = "voters") {
     return;
   }
 
-  const styles = [...document.querySelectorAll('link[rel="stylesheet"], style')]
+  const styles = Array.from(
+    document.querySelectorAll('link[rel="stylesheet"], style'),
+  )
     .map((el) => el.outerHTML)
     .join("\n");
 
@@ -71,7 +73,9 @@ export function printVoterProfilePdf(root: HTMLElement, title = "voters") {
       return;
     }
 
-    const imgs = [...doc.querySelectorAll<HTMLImageElement>(".print-root img")];
+    const imgs = Array.from(
+      doc.querySelectorAll<HTMLImageElement>(".print-root img"),
+    );
     const waitForImages = imgs.map(
       (img) =>
         new Promise<void>((resolve) => {

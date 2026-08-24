@@ -73,4 +73,14 @@ export const queryKeys = {
     meta: ["global-search", "meta"] as const,
     search: (q: string) => ["global-search", q] as const,
   },
+  simulation: {
+    seats: (areaType: string, scopeArea: string, scopeName: string) =>
+      ["simulation", "seats", areaType, scopeArea, scopeName || "all"] as const,
+    saves: (mode?: string, mapCode?: string) =>
+      ["simulation", "saves", mode || "all", mapCode || ""] as const,
+    partyConfig: (
+      areaType: string,
+      overrides: Record<string, { party_gov: boolean }>,
+    ) => ["simulation", "party-config", areaType, overrides] as const,
+  },
 };

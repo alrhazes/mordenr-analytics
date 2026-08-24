@@ -9,6 +9,7 @@ import { adminRoutes } from "./routes/admin.js";
 import { profileRoutes } from "./routes/profile.js";
 import { electoralAssetsRoutes } from "./routes/electoral-assets.js";
 import { globalSearchRoutes } from "./routes/global-search.js";
+import { simulationRoutes } from "./routes/simulation.js";
 import { requireAuth, requireAdmin } from "./lib/middleware.js";
 
 const app = new Hono();
@@ -44,6 +45,9 @@ app.route("/global-search", globalSearchRoutes);
 
 app.use("/library/*", requireAuth);
 app.route("/library", libraryRoutes);
+
+app.use("/simulation/*", requireAuth);
+app.route("/simulation", simulationRoutes);
 
 app.use("/profile", requireAuth);
 app.use("/profile/*", requireAuth);

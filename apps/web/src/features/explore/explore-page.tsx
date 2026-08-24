@@ -193,8 +193,9 @@ export function ExplorePage() {
         selectedConstituencyId,
         selectedElectoralType,
         appliedState,
+        mapLevel,
       }),
-    [selectedConstituencyId, selectedElectoralType, appliedState],
+    [selectedConstituencyId, selectedElectoralType, appliedState, mapLevel],
   );
 
   const summary = useExploreSummary({

@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import {
   BookOpen,
   Compass,
+  FlaskConical,
   LogOut,
   PanelLeft,
   Settings2,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { to: "/explore", label: "Explore", icon: Compass, adminOnly: false },
+  { to: "/simulation", label: "Simulation", icon: FlaskConical, adminOnly: false },
   { to: "/library", label: "Library", icon: BookOpen, adminOnly: false },
   { to: "/admin", label: "Admin", icon: Settings2, adminOnly: true },
   { to: "/profile", label: "Profile", icon: UserRound, adminOnly: false },
@@ -123,7 +125,10 @@ export function AppShell() {
           transition={{ duration: 0.22, ease: "easeOut" }}
           className={cn(
             "flex-1",
-            location.pathname.startsWith("/explore") ? "p-4" : "p-6",
+            location.pathname.startsWith("/explore") ||
+            location.pathname.startsWith("/simulation")
+              ? "p-4"
+              : "p-6",
           )}
         >
           <Outlet />

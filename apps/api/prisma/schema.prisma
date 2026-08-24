@@ -13,6 +13,12 @@ enum Role {
   VIEWER
 }
 
+enum SimulationMode {
+  BATCH
+  AUTO
+  INDIVIDUAL
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -22,6 +28,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   savedViews   SavedView[]
+  simulations  Simulation[]
 }
 
 model AppSetting {
@@ -42,4 +49,29 @@ model SavedView {
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+}
+
+model Simulation {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  mode            SimulationMode @default(BATCH)
+  area            String         @default("NEGARA")
+  areaName        String?
+  areaType        String
+  mapCode         String?
+  selectedCodes   String         @db.Text
+  gainlossJson    String         @db.Text
+  transferJson    String         @db.Text
+  groupingJson    String?        @db.Text
+  partyConfigJson String?        @db.Text
+  partyChangeJson String?        @db.Text
+  resultJson      String?        @db.Text
+  chartJson       String?        @db.Text
+  lastActivity    DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([userId, mode, lastActivity])
 }

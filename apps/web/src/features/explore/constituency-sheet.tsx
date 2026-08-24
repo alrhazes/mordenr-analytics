@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FlaskConical, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { electoralAssetUrl } from "@/lib/electoral-assets";
 import { useSeatDetail } from "@/queries/explore";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
+import { simulationHrefFromExplore } from "@/features/simulation/lib/simulation-scope";
 
 function formatNumber(n: number) {
   return new Intl.NumberFormat("en-MY").format(n);
@@ -17,10 +19,12 @@ function formatMajority(majority: number, majorityPercent: number) {
 }
 
 export function ConstituencySheet() {
+  const navigate = useNavigate();
   const code = useExploreWorkspaceStore((s) => s.selectedConstituencyId);
   const electoralType = useExploreWorkspaceStore((s) => s.selectedElectoralType);
   const mapLevel = useExploreWorkspaceStore((s) => s.mapLevel);
   const presentation = useExploreWorkspaceStore((s) => s.presentation);
+  const filters = useExploreWorkspaceStore((s) => s.filters);
   const setSelected = useExploreWorkspaceStore(
     (s) => s.setSelectedConstituencyId,
   );
@@ -30,9 +34,23 @@ export function ConstituencySheet() {
   const type = electoralType || mapLevel;
   const detail = useSeatDetail(code, type, presentation);
 
+  const stateFilter =
+    filters.state && filters.state !== "0" ? filters.state.toUpperCase() : "";
+
   function closeDetail() {
     setSelected(null);
     setSelectedElectoralType(null);
+  }
+
+  function openIndividualSimulation() {
+    navigate(
+      simulationHrefFromExplore({
+        mapLevel: type,
+        selectedConstituencyId: code,
+        selectedElectoralType: type,
+        appliedState: stateFilter || detail.data?.state?.toUpperCase() || "",
+      }),
+    );
   }
 
   return (
@@ -90,6 +108,15 @@ export function ConstituencySheet() {
               {detail.data && (
                 <>
                   <SeatProfile data={detail.data} />
+
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={openIndividualSimulation}
+                  >
+                    <FlaskConical className="h-4 w-4" />
+                    Simulasi Undian (Auto)
+                  </Button>
 
                   <div className="grid grid-cols-2 gap-3">
                     <Stat label="State" value={detail.data.state} />

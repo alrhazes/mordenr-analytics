@@ -8,15 +8,19 @@ export type RingkasanScope = {
   value: string;
 };
 
-/** Match bdcat generateRingkasanPrediction priority: seat > state > negara. */
+/** Match bdcat generateRingkasanPrediction priority: seat > state > negara.
+ * If a seat is selected but electoral type is missing, fall back to mapLevel. */
 export function resolveRingkasanScope(opts: {
   selectedConstituencyId: string | null;
   selectedElectoralType: MapLevel | null;
   appliedState: string;
+  mapLevel?: MapLevel | null;
 }): RingkasanScope {
-  if (opts.selectedConstituencyId && opts.selectedElectoralType) {
+  if (opts.selectedConstituencyId) {
+    const seatType =
+      opts.selectedElectoralType ?? opts.mapLevel ?? "parliament";
     return {
-      area: opts.selectedElectoralType === "dun" ? "DUN" : "PARLIMEN",
+      area: seatType === "dun" ? "DUN" : "PARLIMEN",
       value: opts.selectedConstituencyId,
     };
   }

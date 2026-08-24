@@ -1,7 +1,9 @@
-import { List, Database, RotateCcw, Search, Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { List, Database, RotateCcw, Search, Check, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 import { hasActiveMapFilters } from "./lib/map-filters";
+import { simulationHrefFromExplore } from "@/features/simulation/lib/simulation-scope";
 import { SeatSearch } from "./seat-search";
 import { MapFiltersPanel } from "./map-filters";
 
@@ -39,10 +41,17 @@ function Pill({
 }
 
 export function MapControlBar() {
+  const navigate = useNavigate();
   const mapLevel = useExploreWorkspaceStore((s) => s.mapLevel);
   const presentation = useExploreWorkspaceStore((s) => s.presentation);
   const colorMode = useExploreWorkspaceStore((s) => s.colorMode);
   const filters = useExploreWorkspaceStore((s) => s.filters);
+  const selectedConstituencyId = useExploreWorkspaceStore(
+    (s) => s.selectedConstituencyId,
+  );
+  const selectedElectoralType = useExploreWorkspaceStore(
+    (s) => s.selectedElectoralType,
+  );
   const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
   const setPresentation = useExploreWorkspaceStore((s) => s.setPresentation);
   const setColorMode = useExploreWorkspaceStore((s) => s.setColorMode);
@@ -55,6 +64,16 @@ export function MapControlBar() {
   );
 
   const filtersActive = hasActiveMapFilters(filters);
+  const stateFilter =
+    filters.state && filters.state !== "0" ? filters.state.toUpperCase() : "";
+
+  const simulationHref = () =>
+    simulationHrefFromExplore({
+      mapLevel,
+      selectedConstituencyId,
+      selectedElectoralType,
+      appliedState: stateFilter,
+    });
 
   const selectLevel = (next: "parliament" | "dun" | "ops66") => {
     if (next === "ops66") {
@@ -123,6 +142,16 @@ export function MapControlBar() {
           <Button size="sm" variant="outline" onClick={() => setSenaraiOpen(true)}>
             <List className="h-3.5 w-3.5" />
             {mapLevel === "parliament" ? "Senarai Parlimen" : "Senarai Dun"}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => navigate(simulationHref())}
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            {selectedConstituencyId
+              ? "Simulasi Undian (Auto)"
+              : "Simulasi kawasan ini"}
           </Button>
           {filtersActive && (
             <Button

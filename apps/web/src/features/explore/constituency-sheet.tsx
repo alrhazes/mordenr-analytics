@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FlaskConical, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -33,11 +33,26 @@ export function ConstituencySheet() {
   );
   const type = electoralType || mapLevel;
   const detail = useSeatDetail(code, type, presentation);
+  const [backdropReady, setBackdropReady] = useState(false);
+
+  // Avoid the click that opened this sheet from immediately closing it
+  // (e.g. seat search result → backdrop receives the same pointer event).
+  useEffect(() => {
+    if (!code) {
+      setBackdropReady(false);
+      return;
+    }
+    setBackdropReady(false);
+    const id = window.setTimeout(() => setBackdropReady(true), 50);
+    return () => window.clearTimeout(id);
+  }, [code]);
 
   const stateFilter =
     filters.state && filters.state !== "0" ? filters.state.toUpperCase() : "";
 
   function closeDetail() {
+    // Dismiss the side panel only. Seat search (if any) keeps Status /
+    // Demografi scoped via searchSelection fallback on the Explore page.
     setSelected(null);
     setSelectedElectoralType(null);
   }
@@ -64,7 +79,10 @@ export function ConstituencySheet() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={closeDetail}
+            onClick={() => {
+              if (!backdropReady) return;
+              closeDetail();
+            }}
           />
           <motion.aside
             initial={{ x: 28, opacity: 0 }}
@@ -250,16 +268,20 @@ function MemberPhoto({
   fallback: string;
   alt: string;
 }) {
-  const [src, setSrc] = useState(() => electoralAssetUrl(primary));
+  const url = electoralAssetUrl(primary);
+  const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    setUseFallback(false);
+  }, [primary]);
 
   return (
     <img
-      src={src}
+      src={useFallback ? electoralAssetUrl(fallback) : url}
       alt={alt}
       className="h-20 w-20 shrink-0 rounded-md border border-[var(--color-line)] bg-white object-cover object-top"
       onError={() => {
-        const next = electoralAssetUrl(fallback);
-        if (src !== next) setSrc(next);
+        if (!useFallback) setUseFallback(true);
       }}
     />
   );
@@ -274,16 +296,20 @@ function PartyLogo({
   fallback: string;
   alt: string;
 }) {
-  const [logoSrc, setLogoSrc] = useState(() => electoralAssetUrl(src));
+  const primary = electoralAssetUrl(src);
+  const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    setUseFallback(false);
+  }, [src]);
 
   return (
     <img
-      src={logoSrc}
+      src={useFallback ? electoralAssetUrl(fallback) : primary}
       alt={alt}
       className="h-8 max-w-[52px] border border-[var(--color-line)] bg-white object-contain p-0.5"
       onError={() => {
-        const next = electoralAssetUrl(fallback);
-        if (logoSrc !== next) setLogoSrc(next);
+        if (!useFallback) setUseFallback(true);
       }}
     />
   );

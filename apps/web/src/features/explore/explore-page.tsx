@@ -13,8 +13,6 @@ import { ConstituencySheet } from "./constituency-sheet";
 import { VoterSheet } from "./voter-sheet";
 import { MapControlBar } from "./map-control-bar";
 import { SeatListDialog } from "./seat-list-dialog";
-import { DataInventoryDialog } from "./data-inventory-dialog";
-import { Ops66PasswordDialog } from "./ops66-password-dialog";
 import { applyMapFilters } from "./lib/map-filters";
 import {
   resolveRingkasanScope,
@@ -190,12 +188,21 @@ export function ExplorePage() {
   const ringkasanScope = useMemo(
     () =>
       resolveRingkasanScope({
-        selectedConstituencyId,
-        selectedElectoralType,
+        selectedConstituencyId:
+          selectedConstituencyId || searchSelection?.code || null,
+        selectedElectoralType:
+          selectedElectoralType || searchSelection?.electoralType || null,
         appliedState,
         mapLevel,
       }),
-    [selectedConstituencyId, selectedElectoralType, appliedState, mapLevel],
+    [
+      selectedConstituencyId,
+      selectedElectoralType,
+      searchSelection?.code,
+      searchSelection?.electoralType,
+      appliedState,
+      mapLevel,
+    ],
   );
 
   const summary = useExploreSummary({
@@ -277,8 +284,6 @@ export function ExplorePage() {
       <ConstituencySheet />
       <VoterSheet ic={voterParam} onClose={closeVoterProfile} />
       <SeatListDialog />
-      <DataInventoryDialog />
-      <Ops66PasswordDialog />
     </div>
   );
 }

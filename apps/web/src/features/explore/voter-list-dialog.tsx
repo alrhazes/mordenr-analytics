@@ -10,6 +10,7 @@ import {
   Filter,
   Printer,
   Search,
+  Share2,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -430,6 +431,7 @@ export function VoterListDialog({
                     <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-wide text-[var(--color-ink-muted)]">
                       <th className="px-2 py-2">Nama</th>
                       <th className="px-2 py-2">IC</th>
+                      <th className="px-2 py-2">Media</th>
                       <th className="px-2 py-2">Jantina</th>
                       <th className="px-2 py-2">Kaum</th>
                       <th className="px-2 py-2">Umur</th>
@@ -453,6 +455,19 @@ export function VoterListDialog({
                           </button>
                         </td>
                         <td className="px-2 py-2 tabular-nums">{row.ic}</td>
+                        <td className="px-2 py-2">
+                          {row.hasSocial ? (
+                            <span
+                              title="Ada media sosial"
+                              className="inline-flex items-center gap-1 rounded bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)]"
+                            >
+                              <Share2 className="h-3 w-3" />
+                              Ada
+                            </span>
+                          ) : (
+                            <span className="text-[var(--color-ink-muted)]">—</span>
+                          )}
+                        </td>
                         <td className="px-2 py-2">{row.jantina}</td>
                         <td className="px-2 py-2">{row.bangsa}</td>
                         <td className="px-2 py-2 tabular-nums">{row.age}</td>

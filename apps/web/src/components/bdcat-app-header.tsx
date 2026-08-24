@@ -76,7 +76,7 @@ function EnterpriseGlobalSearch() {
   const totalRecords = meta.data?.totalRecords ?? 21_000_000;
   const placeholder = useMemo(() => {
     const count = formatGlobalSearchCount(totalRecords);
-    return `Enterprise Global Search (${count})`;
+    return `Search (${count})`;
   }, [totalRecords]);
 
   function pick(item: GlobalSearchSuggestion) {

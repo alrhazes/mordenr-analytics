@@ -1,19 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { VotersPartyChip } from "@/queries/explore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { electoralAssetUrl } from "@/lib/electoral-assets";
 
 function ChipLogo({ logo, alt }: { logo: string; alt: string }) {
-  const [src, setSrc] = useState(() => electoralAssetUrl(logo));
+  const primary = electoralAssetUrl(logo);
+  const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    setUseFallback(false);
+  }, [logo]);
 
   return (
     <img
-      src={src}
+      src={useFallback ? electoralAssetUrl("parties/ind.png") : primary}
       alt={alt}
       className="h-8 w-8 shrink-0 rounded border border-[var(--color-line)] bg-white object-contain p-0.5"
       onError={() => {
-        const fallback = electoralAssetUrl("parties/ind.png");
-        if (src !== fallback) setSrc(fallback);
+        if (!useFallback) setUseFallback(true);
       }}
     />
   );

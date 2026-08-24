@@ -46,6 +46,7 @@ export type VoterListRow = {
   lokaliti: string;
   sikap: string;
   parti: string;
+  hasSocial: boolean;
 };
 
 type BuiltFilters = {
@@ -236,6 +237,9 @@ function buildSelectQuery(
   limit: number,
   offset: number,
 ): { sql: string; params: unknown[]; countSql: string; countParams: unknown[] } {
+  const hasSocialExpr = (icColumn: string) =>
+    `EXISTS (SELECT 1 FROM electorals_mantooman_social s WHERE s.ic = ${icColumn})`;
+
   const baseSelect = `SELECT
     register_id AS registerId,
     ic,
@@ -250,7 +254,8 @@ function buildSelectQuery(
     CONCAT(dm_code,' - ',dm) AS dm,
     CONCAT(kodlokaliti,' - ',lokaliti) AS lokaliti,
     sikap,
-    parti
+    parti,
+    ${hasSocialExpr("electorals_register.ic")} AS hasSocial
   FROM electorals_register`;
 
   if (built.partyQuery) {
@@ -269,14 +274,15 @@ function buildSelectQuery(
       CONCAT(r.dm_code,' - ',r.dm) AS dm,
       CONCAT(r.kodlokaliti,' - ',r.lokaliti) AS lokaliti,
       r.sikap,
-      r.parti
+      r.parti,
+      ${hasSocialExpr("r.ic")} AS hasSocial
     FROM (
       SELECT r.*
       FROM electorals_register r
       INNER JOIN electorals_members m ON r.ic = m.ic
       ${innerWhere}
     ) r
-    ORDER BY r.ic
+    ORDER BY hasSocial DESC, r.ic
     LIMIT ? OFFSET ?`;
 
     const countSql = `SELECT COUNT(*) AS total
@@ -292,7 +298,7 @@ function buildSelectQuery(
     };
   }
 
-  const sql = `${baseSelect}${built.whereClause} ORDER BY ic LIMIT ? OFFSET ?`;
+  const sql = `${baseSelect}${built.whereClause} ORDER BY hasSocial DESC, ic LIMIT ? OFFSET ?`;
   const countSql = `SELECT COUNT(*) AS total FROM electorals_register${built.whereClause}`;
 
   return {
@@ -402,5 +408,6 @@ function mapVoterRows(dataRows: RowDataPacket[] | undefined): VoterListRow[] {
     lokaliti: String(r.lokaliti ?? ""),
     sikap: String(r.sikap ?? ""),
     parti: String(r.parti ?? ""),
+    hasSocial: Boolean(Number(r.hasSocial ?? 0)),
   }));
 }

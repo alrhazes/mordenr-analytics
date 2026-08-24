@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { List, Database, RotateCcw, Search, Check, FlaskConical } from "lucide-react";
+import { List, RotateCcw, Search, Check, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 import { hasActiveMapFilters } from "./lib/map-filters";
@@ -52,35 +52,30 @@ export function MapControlBar() {
   const selectedElectoralType = useExploreWorkspaceStore(
     (s) => s.selectedElectoralType,
   );
+  const searchSelection = useExploreWorkspaceStore((s) => s.searchSelection);
   const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
   const setPresentation = useExploreWorkspaceStore((s) => s.setPresentation);
   const setColorMode = useExploreWorkspaceStore((s) => s.setColorMode);
   const resetAllFilters = useExploreWorkspaceStore((s) => s.resetAllFilters);
   const clearSearch = useExploreWorkspaceStore((s) => s.clearSearch);
   const setSenaraiOpen = useExploreWorkspaceStore((s) => s.setSenaraiOpen);
-  const setInventoryOpen = useExploreWorkspaceStore((s) => s.setInventoryOpen);
-  const setOps66DialogOpen = useExploreWorkspaceStore(
-    (s) => s.setOps66DialogOpen,
-  );
 
   const filtersActive = hasActiveMapFilters(filters);
   const stateFilter =
     filters.state && filters.state !== "0" ? filters.state.toUpperCase() : "";
+  const scopedSeatId = selectedConstituencyId || searchSelection?.code || null;
+  const scopedSeatType =
+    selectedElectoralType || searchSelection?.electoralType || null;
 
   const simulationHref = () =>
     simulationHrefFromExplore({
       mapLevel,
-      selectedConstituencyId,
-      selectedElectoralType,
+      selectedConstituencyId: scopedSeatId,
+      selectedElectoralType: scopedSeatType,
       appliedState: stateFilter,
     });
 
-  const selectLevel = (next: "parliament" | "dun" | "ops66") => {
-    if (next === "ops66") {
-      if (presentation === "ops66") return;
-      setOps66DialogOpen(true);
-      return;
-    }
+  const selectLevel = (next: "parliament" | "dun") => {
     if (presentation === "ops66") {
       setPresentation("normal");
     }
@@ -109,12 +104,6 @@ export function MapControlBar() {
             >
               Dun
             </Pill>
-            <Pill
-              active={presentation === "ops66"}
-              onClick={() => selectLevel("ops66")}
-            >
-              Ops 66
-            </Pill>
           </PillGroup>
           <PillGroup>
             <Pill
@@ -137,46 +126,34 @@ export function MapControlBar() {
 
       <MapFiltersPanel />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setSenaraiOpen(true)}>
-            <List className="h-3.5 w-3.5" />
-            {mapLevel === "parliament" ? "Senarai Parlimen" : "Senarai Dun"}
-          </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => setSenaraiOpen(true)}>
+          <List className="h-3.5 w-3.5" />
+          {mapLevel === "parliament" ? "Senarai Parlimen" : "Senarai Dun"}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => navigate(simulationHref())}
+        >
+          <FlaskConical className="h-3.5 w-3.5" />
+          {scopedSeatId
+            ? "Simulasi Undian (Auto)"
+            : "Simulasi kawasan ini"}
+        </Button>
+        {filtersActive && (
           <Button
             size="sm"
-            variant="secondary"
-            onClick={() => navigate(simulationHref())}
+            variant="ghost"
+            onClick={() => {
+              resetAllFilters();
+              clearSearch();
+            }}
           >
-            <FlaskConical className="h-3.5 w-3.5" />
-            {selectedConstituencyId
-              ? "Simulasi Undian (Auto)"
-              : "Simulasi kawasan ini"}
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Semua
           </Button>
-          {filtersActive && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                resetAllFilters();
-                clearSearch();
-              }}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset Semua
-            </Button>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setInventoryOpen(true)}
-          className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--color-ink)]"
-        >
-          <span className="text-[var(--color-ink-muted)]">[</span>
-          <Database className="h-5 w-5 text-[var(--color-accent)]" />
-          Data Inventory
-          <span className="text-[var(--color-ink-muted)]">]</span>
-        </button>
+        )}
       </div>
     </div>
   );

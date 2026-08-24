@@ -89,8 +89,18 @@ function FitBounds({
   return null;
 }
 
+const BN_MAP_COLOR = "#00007C"; // rgb(0, 0, 124)
+
+function isBarisanNasional(label?: string) {
+  if (!label) return false;
+  const key = label.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return key === "BN" || key === "BARISANNASIONAL";
+}
+
 function fillColor(
   props: {
+    party?: string;
+    partyGroup?: string;
     partyColor?: string;
     groupColor?: string;
     color?: string;
@@ -98,8 +108,10 @@ function fillColor(
   colorMode: "party" | "group",
 ) {
   if (colorMode === "group") {
+    if (isBarisanNasional(props.partyGroup)) return BN_MAP_COLOR;
     return props.groupColor || props.partyColor || props.color || "#1f6fb2";
   }
+  if (isBarisanNasional(props.party)) return BN_MAP_COLOR;
   return props.partyColor || props.color || "#1f6fb2";
 }
 
@@ -160,6 +172,8 @@ export function ExploreMap({
     const props = feature?.properties as
       | {
           code?: string;
+          party?: string;
+          partyGroup?: string;
           partyColor?: string;
           groupColor?: string;
           color?: string;

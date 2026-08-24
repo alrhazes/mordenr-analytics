@@ -9,10 +9,10 @@ import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 export function SeatSearch({ embedded = false }: { embedded?: boolean }) {
   const presentation = useExploreWorkspaceStore((s) => s.presentation);
   const searchSelection = useExploreWorkspaceStore((s) => s.searchSelection);
-  const setSearchSelection = useExploreWorkspaceStore((s) => s.setSearchSelection);
+  const selectSeatFromSearch = useExploreWorkspaceStore(
+    (s) => s.selectSeatFromSearch,
+  );
   const clearSearch = useExploreWorkspaceStore((s) => s.clearSearch);
-  const resetAllFilters = useExploreWorkspaceStore((s) => s.resetAllFilters);
-  const setMapLevel = useExploreWorkspaceStore((s) => s.setMapLevel);
 
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -39,6 +39,7 @@ export function SeatSearch({ embedded = false }: { embedded?: boolean }) {
           {searchSelection ? (
             <>
               <PartyLogoPair
+                key={searchSelection.code}
                 groupLogo={searchSelection.groupLogo}
                 partyLogo={searchSelection.partyLogo}
                 groupLogoFallback={searchSelection.groupLogoFallback}
@@ -62,10 +63,7 @@ export function SeatSearch({ embedded = false }: { embedded?: boolean }) {
             type="button"
             title="Kembali"
             className="inline-flex h-10 items-center gap-1.5 rounded-md border border-[var(--color-danger)]/40 px-3 text-sm font-medium text-[var(--color-danger)]"
-            onClick={() => {
-              clearSearch();
-              resetAllFilters();
-            }}
+            onClick={() => clearSearch()}
           >
             <Undo2 className="h-3.5 w-3.5" />
             Kembali
@@ -105,11 +103,7 @@ export function SeatSearch({ embedded = false }: { embedded?: boolean }) {
                         key={o.code}
                         option={o}
                         onSelect={() => {
-                          resetAllFilters();
-                          setMapLevel(
-                            o.electoralType === "dun" ? "dun" : "parliament",
-                          );
-                          setSearchSelection(o);
+                          selectSeatFromSearch(o);
                           setOpen(false);
                         }}
                       />

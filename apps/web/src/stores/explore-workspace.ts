@@ -90,6 +90,7 @@ type ExploreWorkspaceState = {
   resetNonStateFilters: () => void;
   resetAllFilters: () => void;
   setSearchSelection: (hit: SeatSearchHit | null) => void;
+  selectSeatFromSearch: (hit: SeatSearchHit) => void;
   clearSearch: () => void;
   setSenaraiOpen: (open: boolean) => void;
   setInventoryOpen: (open: boolean) => void;
@@ -187,9 +188,20 @@ export const useExploreWorkspaceStore = create<ExploreWorkspaceState>(
         selectedConstituencyId: hit?.code ?? null,
         selectedElectoralType: hit?.electoralType ?? null,
       }),
+    selectSeatFromSearch: (hit) =>
+      set({
+        filters: emptyFilters(),
+        appliedState: "",
+        mapLevel: hit.electoralType === "dun" ? "dun" : "parliament",
+        searchSelection: hit,
+        selectedConstituencyId: hit.code,
+        selectedElectoralType: hit.electoralType,
+      }),
     clearSearch: () =>
       set({
         searchSelection: null,
+        selectedConstituencyId: null,
+        selectedElectoralType: null,
       }),
     setSenaraiOpen: (open) => set({ senaraiOpen: open }),
     setInventoryOpen: (open) => set({ inventoryOpen: open }),

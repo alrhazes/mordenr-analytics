@@ -118,6 +118,7 @@ export type VoterListRow = {
   lokaliti: string;
   sikap: string;
   parti: string;
+  hasSocial: boolean;
 };
 
 export type VoterListResult = {

@@ -4,7 +4,7 @@ import type { GroupSeat } from "@/queries/explore";
 const BRAND_COLORS: Record<string, string> = {
   PH: "#e42535",
   PN: "#2563eb",
-  BN: "#1e3a8a",
+  BN: "#00007C",
   GPS: "#ea580c",
   GRS: "#0284c7",
   WARISAN: "#06b6d4",

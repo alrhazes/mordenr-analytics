@@ -20,6 +20,7 @@ export const voterListExportColumns: VoterListExportColumn[] = [
   { header: "LOKALITI", value: (r) => r.lokaliti },
   { header: "SIKAP", value: (r) => r.sikap },
   { header: "PARTI", value: (r) => r.parti },
+  { header: "MEDIA SOSIAL", value: (r) => (r.hasSocial ? "YA" : "TIDAK") },
 ];
 
 function escapeCsv(value: string): string {

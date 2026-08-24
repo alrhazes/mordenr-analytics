@@ -54,11 +54,13 @@ export function AppShell() {
       >
         <div className="flex items-center gap-3 px-4 py-5">
           <div className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-sm font-semibold tracking-wide">
-            BD
+            VL
           </div>
           {!sidebarCollapsed && (
             <div>
-              <div className="text-sm font-semibold tracking-[0.08em]">BDCAT</div>
+              <div className="text-sm font-semibold tracking-[0.08em]">
+                Votlytics
+              </div>
               <div className="text-xs text-[var(--color-sidebar-muted)]">
                 Analytics
               </div>

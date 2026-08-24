@@ -30,7 +30,7 @@ export function ProfilePage() {
           Profile
         </h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          Your BDCAT system account — stored in <code>bdcat_system</code>.
+          Your Votlytics system account — stored in <code>bdcat_system</code>.
         </p>
       </div>
 

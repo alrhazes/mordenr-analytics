@@ -45,20 +45,20 @@ export function LoginPage() {
         >
           <div className="mb-6 inline-flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-lg bg-[var(--color-ink)] text-white">
-              <span className="text-sm font-semibold tracking-widest">BD</span>
+              <span className="text-sm font-semibold tracking-widest">VL</span>
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-ink-muted)]">
                 TrackData
               </div>
               <div className="font-[family-name:var(--font-display)] text-4xl text-[var(--color-ink)] md:text-5xl">
-                BDCAT
+                Votlytics
               </div>
             </div>
           </div>
           <p className="max-w-md text-lg leading-relaxed text-[var(--color-ink-muted)]">
-            Big Data Coordinated Analytic Technology — explore electoral
-            intelligence with a faster, calmer workspace.
+            Vote analytics — explore electoral intelligence with a faster,
+            calmer workspace.
           </p>
         </motion.div>
 
@@ -79,7 +79,7 @@ export function LoginPage() {
             Sign in
           </h1>
           <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            Use your BDCAT system account.
+            Use your Votlytics system account.
           </p>
 
           <div className="mt-6 space-y-4">

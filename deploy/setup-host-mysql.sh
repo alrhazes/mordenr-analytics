@@ -12,7 +12,7 @@ fi
 
 # Bind all interfaces — Docker reaches via host.docker.internal (172.17.0.1).
 # deploy/setup-host-mysql.sh adds iptables rules blocking public 3306 access.
-cat > /etc/mysql/mysql.conf.d/99-sentra.cnf <<'EOF'
+cat > /etc/mysql/mysql.conf.d/zz-sentra.cnf <<'EOF'
 [mysqld]
 bind-address = 0.0.0.0
 mysqlx-bind-address = 127.0.0.1

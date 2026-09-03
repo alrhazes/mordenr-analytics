@@ -1,0 +1,67 @@
+name: sentra
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: bdcat_system
+      MYSQL_USER: bdcat
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - sentra_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - sentra_net
+
+  api:
+    build:
+      context: .
+      target: api
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql://bdcat:${MYSQL_PASSWORD}@mysql:3306/bdcat_system
+      KNOWLEDGE_DATABASE_URL: mysql://bdcat:${KNOWLEDGE_MYSQL_PASSWORD}@host.docker.internal:3306/stt_electorals
+      API_PORT: "3001"
+      NODE_ENV: production
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://sentra.warforge.red}
+      GIT_SHA: ${GIT_SHA:-unknown}
+      BUILD_TIME: ${BUILD_TIME:-unknown}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:13011:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - sentra_net
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:80"
+    depends_on:
+      - api
+    networks:
+      - sentra_net
+
+volumes:
+  sentra_mysql:
+
+networks:
+  sentra_net:
+    driver: bridge

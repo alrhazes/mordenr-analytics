@@ -182,7 +182,7 @@ export function ExploreMap({
     const color = fillColor(props || {}, colorMode);
     const code = props?.code;
     const isSelected = code && code === selected;
-    // Match bdcat: white seat borders, party/group fill
+    // White seat borders, party/group fill
     return {
       color: isSelected ? "#0b1f33" : "#ffffff",
       weight: isSelected ? 2.5 : 1,

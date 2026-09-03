@@ -1,4 +1,4 @@
-/** Port of bdcat globalPrintModalToPDF — opens browser print dialog for PDF save. */
+/** Opens browser print dialog for PDF save. */
 export function printVoterProfilePdf(root: HTMLElement, title = "voters") {
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";

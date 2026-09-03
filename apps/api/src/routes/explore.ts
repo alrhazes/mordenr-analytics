@@ -20,7 +20,7 @@ import { fetchVoterList, fetchVoterListExport } from "../lib/voter-list-filters.
 
 const ELECTION = "GE15";
 
-/** Same SHA-256 as bdcat `verify_presentation_mode_password` (override via env). */
+/** Same SHA-256 as legacy `verify_presentation_mode_password` (override via env). */
 const DEFAULT_OPS66_PASSWORD_SHA256 =
   "59a4dfaa1a79b8ad4491f2ac7605ef65dae2d8d506d989e3923565f7fd0e8ba3";
 
@@ -125,7 +125,7 @@ function mapRingkasanRow(r: RowDataPacket): RingkasanRow {
   };
 }
 
-/** Match legacy bdcat `get_ringkasan_details` — scope-driven aggregates. */
+/** Match legacy `get_ringkasan_details` — scope-driven aggregates. */
 async function fetchRingkasan(
   pool: ReturnType<typeof getKnowledgePool>,
   scope: { area: RingkasanScope; value: string },
@@ -820,7 +820,7 @@ exploreRoutes.get("/search", async (c) => {
   );
 
   let dunRows: RowDataPacket[] = [];
-  // OPS66 search is parliament-only (bdcat skips dun options)
+  // OPS66 search is parliament-only (legacy skips dun options)
   if (presentation !== "ops66") {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT

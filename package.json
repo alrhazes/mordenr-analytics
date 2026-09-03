@@ -1,5 +1,5 @@
 {
-  "name": "bdcat-analytics",
+  "name": "sentra",
   "private": true,
   "workspaces": [
     "apps/*"
@@ -9,12 +9,12 @@
   },
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
-    "dev:web": "npm run dev -w @bdcat/web",
-    "dev:api": "npm run dev -w @bdcat/api",
+    "dev:web": "npm run dev -w @sentra/web",
+    "dev:api": "npm run dev -w @sentra/api",
     "build": "npm run build --workspaces --if-present",
     "db:create": "node scripts/create-system-db.mjs",
-    "db:migrate": "npm run db:migrate -w @bdcat/api",
-    "db:seed": "npm run db:seed -w @bdcat/api",
+    "db:migrate": "npm run db:migrate -w @sentra/api",
+    "db:seed": "npm run db:seed -w @sentra/api",
     "db:setup": "npm run db:create && npm run db:migrate && npm run db:seed",
     "assets:sync-electorals": "node scripts/sync-electorals-assets.mjs"
   }

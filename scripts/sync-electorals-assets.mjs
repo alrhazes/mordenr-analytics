@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sync electoral static assets from sibling bdcat checkout into this repo.
+ * Sync electoral static assets from the sibling dashboard checkout into this repo.
  * Source: ../bdcat/dashboard/electorals/img
  * Target: assets/electorals/img
  */
@@ -14,7 +14,7 @@ const target = path.resolve(root, "assets/electorals/img");
 
 if (!existsSync(source)) {
   console.error(`Source not found: ${source}`);
-  console.error("Expected a sibling bdcat repo at ../bdcat");
+  console.error("Expected a sibling dashboard repo at ../bdcat");
   process.exit(1);
 }
 

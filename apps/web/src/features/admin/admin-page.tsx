@@ -42,8 +42,7 @@ export function AdminPage() {
             Admin
           </h1>
           <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            People and roles in <code>bdcat_system</code> — not the legacy
-            Metronic admin chrome.
+            People and roles for this workspace.
           </p>
         </div>
         <Button size="sm" onClick={() => setFormOpen((v) => !v)}>

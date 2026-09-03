@@ -1,6 +1,6 @@
 import mysql from "mysql2/promise";
 
-/** Read pool for legacy bdcat_system tables (e.g. dash_globalsearch). */
+/** Read pool for legacy system tables (e.g. dash_globalsearch). */
 let pool: mysql.Pool | null = null;
 
 export function getSystemPool() {

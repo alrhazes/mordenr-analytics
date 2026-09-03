@@ -184,7 +184,7 @@ export function ExplorePage() {
     );
   }
 
-  // Match bdcat generateRingkasanPrediction: seat > state filter > negara
+  // Ringkasan priority: seat > state filter > negara
   const ringkasanScope = useMemo(
     () =>
       resolveRingkasanScope({

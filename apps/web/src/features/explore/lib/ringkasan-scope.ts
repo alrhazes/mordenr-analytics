@@ -1,6 +1,6 @@
 import type { MapLevel } from "@/stores/explore-workspace";
 
-/** Legacy bdcat `get_ringkasan_details` text param. */
+/** Legacy `get_ringkasan_details` text param. */
 export type RingkasanArea = "NEGARA" | "NEGERI" | "PARLIMEN" | "DUN";
 
 export type RingkasanScope = {
@@ -8,7 +8,7 @@ export type RingkasanScope = {
   value: string;
 };
 
-/** Match bdcat generateRingkasanPrediction priority: seat > state > negara.
+/** Ringkasan priority: seat > state > negara.
  * If a seat is selected but electoral type is missing, fall back to mapLevel. */
 export function resolveRingkasanScope(opts: {
   selectedConstituencyId: string | null;

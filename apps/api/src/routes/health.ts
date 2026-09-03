@@ -7,7 +7,7 @@ import {
 
 export const healthRoutes = new Hono();
 
-/** Server + DB poll for header network-speed badge (bdcat poll_speed). */
+/** Server + DB poll for header network-speed badge. */
 healthRoutes.get("/speed", async (c) => {
   try {
     await prisma.$queryRaw`SELECT 1 AS ok`;
@@ -40,7 +40,7 @@ healthRoutes.get("/", async (c) => {
   return c.json(
     {
       ok,
-      systemDb: { ok: systemOk, name: "bdcat_system" },
+      systemDb: { ok: systemOk, name: "system" },
       knowledgeDb: {
         ok: knowledgeOk,
         name: knowledgeDb,

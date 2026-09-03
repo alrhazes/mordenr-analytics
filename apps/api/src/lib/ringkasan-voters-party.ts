@@ -43,7 +43,7 @@ function votersPartyWhere(scope: {
   return { clause: " WHERE voters_area = 'NEGARA'", params: [] };
 }
 
-/** Match legacy bdcat `get_ringkasan_details` voters_party block. */
+/** Match legacy `get_ringkasan_details` voters_party block. */
 export async function fetchVotersParty(
   pool: Pool,
   scope: { area: RingkasanScope; value: string },

@@ -30,7 +30,7 @@ export type ResolvedSimulation =
       scopeTitle: string;
     };
 
-/** BDCAT generateRingkasan / initSimulationParDun: scope picks batch vs individual; mapLevel picks seat list type. */
+/** generateRingkasan / initSimulationParDun: scope picks batch vs individual; mapLevel picks seat list type. */
 export function resolveSimulationFromScope(
   scope: RingkasanScope,
   mapLevel: MapLevel,

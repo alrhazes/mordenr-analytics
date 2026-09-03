@@ -1,6 +1,6 @@
-# BDCAT Analytics
+# SENTRA
 
-Modern BDCAT workspace — React + Hono, dual MySQL databases, fluid Explore UX.
+SENTRA workspace — React + Hono, dual MySQL databases, fluid Explore UX.
 
 ## Architecture
 
@@ -8,13 +8,13 @@ Modern BDCAT workspace — React + Hono, dual MySQL databases, fluid Explore UX.
 |---|---|
 | Web | Vite + React + Tailwind + shadcn-style UI + TanStack Query + Zustand |
 | API | Hono on Node (`:3001`) |
-| System DB | `bdcat_system` on existing `bdcat-mysql` (users, settings, saved views) |
+| System DB | existing MySQL (users, settings, saved views) — see `.env.example` |
 | Knowledge DB | `stt_electorals` — **read-only**, schema never altered |
 
 ## Prerequisites
 
 - Node 22+
-- `bdcat-mysql` running (from `/Users/shameerulauraez/Documents/dev/bdcat`)
+- Local MySQL with the system and knowledge databases (connection strings in `.env.example`)
 
 ## Setup
 
@@ -23,10 +23,10 @@ cd /Users/shameerulauraez/Documents/dev/analytics
 cp .env.example .env
 cp .env.example apps/api/.env   # Prisma CLI reads apps/api/.env
 npm install
-npm run db:setup                # creates bdcat_system + pushes schema + seeds admin
+npm run db:setup                # creates system DB + pushes schema + seeds admin
 ```
 
-`db:setup` uses `prisma db push` against **`bdcat_system` only**. It never alters `stt_electorals`.
+`db:setup` uses `prisma db push` against the **system database only**. It never alters `stt_electorals`.
 
 ## Dev
 
@@ -43,8 +43,8 @@ npm run dev:web
 
 Default seed admin (change after first login):
 
-- Email: `admin@bdcat.local`
-- Password: `bdcat-admin-change-me`
+- Email: `admin@sentra.com`
+- Password: `sentra-admin-change-me`
 
 ## Explore (Phase 2)
 
@@ -55,7 +55,7 @@ Default seed admin (change after first login):
 
 ## Library (Phase 3)
 
-- Save Explore workspace (state, seat, map mode, compare) into `bdcat_system.SavedView`
+- Save Explore workspace (state, seat, map mode, compare) into the system database
 - `/library` lists, opens, and deletes your views
 - Open restores Explore via `?view=` (+ live knowledge queries)
 

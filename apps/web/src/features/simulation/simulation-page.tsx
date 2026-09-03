@@ -171,7 +171,7 @@ export function SimulationPage() {
   const deleteSave = useDeleteSimulationSave();
   const partyConfigQuery = usePartyConfig(areaType, partyConfig);
 
-  // Scope-driven hydration (BDCAT generateRingkasan / initSimulationParDun)
+  // Scope-driven hydration (generateRingkasan / initSimulationParDun)
   useEffect(() => {
     if (urlHydrated) return;
     const { resolved, mapLevel } = resolveSimulationFromUrlAndExplore({
@@ -227,7 +227,7 @@ export function SimulationPage() {
     urlHydrated,
   ]);
 
-  // Batch: react to Explore mapLevel changes (BDCAT sim_type reset logic)
+  // Batch: react to Explore mapLevel changes (sim_type reset logic)
   useEffect(() => {
     if (!urlHydrated || view !== "batch") {
       prevMapLevelRef.current = exploreMapLevel;
@@ -290,7 +290,7 @@ export function SimulationPage() {
     if (seatListInitKeyRef.current === listKey) return;
 
     seatListInitKeyRef.current = listKey;
-    // First load of this list: select all (BDCAT default). RESET SENARAI clears without re-filling.
+    // First load of this list: select all by default. RESET SENARAI clears without re-filling.
     setSelectedSeatCodes(seatList.data.seats.map((s) => s.code));
   }, [
     seatList.data,

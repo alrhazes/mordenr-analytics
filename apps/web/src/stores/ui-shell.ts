@@ -21,7 +21,7 @@ export const useUiShellStore = create<UiShellState>()(
     }),
     {
       // bump key so default collapsed applies for existing local sessions
-      name: "bdcat-ui-shell-v2",
+      name: "sentra-ui-shell",
       partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),
     },
   ),

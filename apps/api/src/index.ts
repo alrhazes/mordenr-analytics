@@ -28,7 +28,7 @@ app.use(
 
 app.get("/", (c) =>
   c.json({
-    name: "BDCAT Analytics API",
+    name: "SENTRA API",
     version: "0.1.0",
   }),
 );
@@ -62,5 +62,5 @@ app.route("/admin", adminRoutes);
 const port = Number(process.env.API_PORT || 3001);
 
 serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`BDCAT API listening on http://localhost:${info.port}`);
+  console.log(`SENTRA API listening on http://localhost:${info.port}`);
 });

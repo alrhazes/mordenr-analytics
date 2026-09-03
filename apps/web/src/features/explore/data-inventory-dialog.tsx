@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { useExploreWorkspaceStore } from "@/stores/explore-workspace";
 
-/** Static inventory rows ported from bdcat modal_data_inventory.php */
+/** Static inventory rows ported from modal_data_inventory.php */
 const INVENTORY_ROWS: Array<{
   jenis: string;
   jumlah: string;

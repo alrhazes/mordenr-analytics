@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Creates bdcat_system on the existing MySQL server.
+ * Creates the system database on the existing MySQL server.
  * Does NOT touch stt_electorals schema or data.
  */
 import { createConnection } from "mysql2/promise";
@@ -44,5 +44,5 @@ const [rows] = await conn.query(
   `SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN ('bdcat_system', 'stt_electorals')`,
 );
 console.log("Databases present:", rows.map((r) => r.SCHEMA_NAME).join(", "));
-console.log("bdcat_system ready. stt_electorals left unchanged.");
+console.log("System database ready. stt_electorals left unchanged.");
 await conn.end();

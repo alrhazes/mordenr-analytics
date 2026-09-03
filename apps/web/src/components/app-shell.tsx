@@ -11,7 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BdcatAppHeader } from "@/components/bdcat-app-header";
+import { AppHeader } from "@/components/app-header";
 import { useLogout, useMe } from "@/queries/auth";
 import { useUiShellStore } from "@/stores/ui-shell";
 import { cn } from "@/lib/utils";
@@ -52,19 +52,16 @@ export function AppShell() {
           sidebarCollapsed ? "w-[72px]" : "w-[240px]",
         )}
       >
-        <div className="flex items-center gap-3 px-4 py-5">
-          <div className="grid h-9 w-9 place-items-center rounded-md bg-white/10 text-sm font-semibold tracking-wide">
-            VL
-          </div>
+        <div className="px-4 py-5">
           {!sidebarCollapsed && (
-            <div>
+            <>
               <div className="text-sm font-semibold tracking-[0.08em]">
-                Votlytics
+                SENTRA
               </div>
               <div className="text-xs text-[var(--color-sidebar-muted)]">
                 Analytics
               </div>
-            </div>
+            </>
           )}
         </div>
 
@@ -112,7 +109,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <BdcatAppHeader
+        <AppHeader
           sidebarToggle={
             <Button variant="ghost" size="icon" onClick={toggleSidebar}>
               <PanelLeft className="h-4 w-4" />

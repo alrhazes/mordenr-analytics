@@ -9,7 +9,7 @@ const XBLASTER_STORAGE_BASE =
   process.env.XBLASTER_STORAGE_BASE?.replace(/\/+$/, "") ||
   "https://xblasterz.smarttechtank.com/storage";
 
-/** Filtered question IDs from bdcat get_voters_audio (PANDAN). */
+/** Filtered question IDs from get_voters_audio (PANDAN). */
 const CALLSTORE_EXCLUDED_QUESTIONS = [288, 289, 538, 539, 542];
 
 export type VoterCallCentreResponse = {
@@ -209,7 +209,7 @@ export async function getVoterWhatsappBlast(
   }
 }
 
-/** bdcat modal shell exists; no organization table is wired in legacy backend yet. */
+/** Modal shell exists; no organization table is wired in the legacy backend yet. */
 export async function getVoterOrganizations(
   _icRaw: string,
 ): Promise<VoterOrganization[]> {

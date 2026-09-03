@@ -28,7 +28,7 @@ type Props = {
   sidebarToggle?: React.ReactNode;
 };
 
-export function BdcatAppHeader({ sidebarToggle }: Props) {
+export function AppHeader({ sidebarToggle }: Props) {
   const { data: user } = useMe();
   const [now, setNow] = useState(() => new Date());
 

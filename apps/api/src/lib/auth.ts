@@ -43,4 +43,4 @@ export async function verifyToken(token: string): Promise<AuthClaims> {
   };
 }
 
-export const COOKIE_NAME = "bdcat_token";
+export const COOKIE_NAME = "sentra_token";

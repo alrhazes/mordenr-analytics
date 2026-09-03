@@ -1,6 +1,6 @@
 import type { GeoFeatureProperties, MapFilters } from "@/stores/explore-workspace";
 
-/** Port of bdcat map_elec_main.js filter AND predicates. */
+/** Port of map_elec_main.js filter AND predicates. */
 export function seatMatchesFilters(
   props: GeoFeatureProperties,
   filters: MapFilters,

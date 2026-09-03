@@ -12,7 +12,7 @@ const DEFAULT_TOTAL_RECORDS = 21_000_000;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 50;
 
-/** Per-type caps so one category cannot crowd out the rest (bdcat mixes types). */
+/** Per-type caps so one category cannot crowd out the rest. */
 const FALLBACK_TYPE_LIMITS = {
   dm: 5,
   dun: 10,

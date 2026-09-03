@@ -1,4 +1,4 @@
-/** Port of bdcat getBirthPlacefromIc — IC digits 7–8 encode birth state/country. */
+/** Port of getBirthPlacefromIc — IC digits 7–8 encode birth state/country. */
 const BIRTH_PLACES: Record<string, string> = {
   "00": "—",
   "01": "Johor",
